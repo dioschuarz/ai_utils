@@ -1,10 +1,6 @@
 """Funções de parsing do HTML do portal e-SAJ."""
 
 import re
-import json
-import sys
-from datetime import datetime
-from pathlib import Path
 from typing import List, Optional
 from bs4 import BeautifulSoup
 from .models import (
@@ -16,28 +12,6 @@ from .models import (
     Incidente,
 )
 from .config import SELECTORS
-
-# #region agent log
-LOG_PATH = "/home/ds/projects/ai_utils/.cursor/debug.log"
-
-def _log_debug(location: str, message: str, data: dict, hypothesis_id: str = ""):
-    """Helper para logging de debug."""
-    try:
-        log_entry = {
-            "id": f"log_{int(datetime.now().timestamp() * 1000)}",
-            "timestamp": int(datetime.now().timestamp() * 1000),
-            "location": location,
-            "message": message,
-            "data": data,
-            "sessionId": "debug-session",
-            "runId": "run1",
-            "hypothesisId": hypothesis_id
-        }
-        with open(LOG_PATH, "a", encoding="utf-8") as f:
-            f.write(json.dumps(log_entry) + "\n")
-    except Exception:
-        pass
-# #endregion
 
 
 def clean_text(text: Optional[str]) -> str:
@@ -84,26 +58,11 @@ def parse_partes(html: str) -> List[Parte]:
     soup = BeautifulSoup(html, 'lxml')
     partes = []
     
-    # #region agent log
-    _log_debug("parser.py:parse_partes:entry", "Iniciando parse de partes", {}, "F")
-    # #endregion
-    
     tabela = soup.find(id="tablePartesPrincipais")
     if not tabela:
-        # #region agent log
-        _log_debug("parser.py:parse_partes:no_table", "Tabela de partes não encontrada", {}, "F")
-        # #endregion
         return partes
     
-    # #region agent log
-    _log_debug("parser.py:parse_partes:table_found", "Tabela de partes encontrada", {}, "F")
-    # #endregion
-    
     rows = tabela.find_all('tr', class_='fundoClaro')
-    
-    # #region agent log
-    _log_debug("parser.py:parse_partes:rows_found", "Linhas encontradas", {"rows_count": len(rows)}, "F")
-    # #endregion
     
     rows = tabela.find_all('tr', class_='fundoClaro')
     for row in rows:
@@ -157,22 +116,11 @@ def parse_partes(html: str) -> List[Parte]:
                         advogados.append(Advogado(nome=nome_adv, oab=oab))
         
         if nome_parte:
-            # #region agent log
-            _log_debug("parser.py:parse_partes:parte_found", "Parte encontrada", {"tipo": tipo, "nome": nome_parte, "advogados_count": len(advogados)}, "F")
-            # #endregion
             partes.append(Parte(
                 tipo_participacao=tipo,
                 nome=nome_parte,
                 advogados=advogados
             ))
-        else:
-            # #region agent log
-            _log_debug("parser.py:parse_partes:parte_skipped", "Parte ignorada (sem nome)", {"tipo": tipo}, "F")
-            # #endregion
-    
-    # #region agent log
-    _log_debug("parser.py:parse_partes:result", "Parse de partes concluído", {"partes_count": len(partes)}, "F")
-    # #endregion
     
     return partes
 
@@ -182,30 +130,15 @@ def parse_movimentacoes(html: str) -> List[Movimentacao]:
     soup = BeautifulSoup(html, 'lxml')
     movimentacoes = []
     
-    # #region agent log
-    _log_debug("parser.py:parse_movimentacoes:entry", "Iniciando parse de movimentações", {}, "G")
-    # #endregion
-    
     # Tentar pegar todas as movimentações primeiro
     tabela = soup.find(id="tabelaTodasMovimentacoes")
     if not tabela:
         tabela = soup.find(id="tabelaUltimasMovimentacoes")
     
     if not tabela:
-        # #region agent log
-        _log_debug("parser.py:parse_movimentacoes:no_table", "Tabela de movimentações não encontrada", {}, "G")
-        # #endregion
         return movimentacoes
     
-    # #region agent log
-    _log_debug("parser.py:parse_movimentacoes:table_found", "Tabela de movimentações encontrada", {"table_id": tabela.get('id')}, "G")
-    # #endregion
-    
     rows = tabela.find_all('tr', class_=lambda x: x and 'containerMovimentacao' in x)
-    
-    # #region agent log
-    _log_debug("parser.py:parse_movimentacoes:rows_found", "Linhas encontradas", {"rows_count": len(rows)}, "G")
-    # #endregion
     
     for row in rows:
         cells = row.find_all('td')
@@ -262,23 +195,12 @@ def parse_movimentacoes(html: str) -> List[Movimentacao]:
                 link_documento = href
         
         if data or tipo:
-            # #region agent log
-            _log_debug("parser.py:parse_movimentacoes:mov_found", "Movimentação encontrada", {"data": data, "tipo": tipo, "detalhes": detalhes}, "G")
-            # #endregion
             movimentacoes.append(Movimentacao(
                 data=data,
                 tipo=tipo,
                 detalhes=detalhes,
                 link_documento=link_documento
             ))
-        else:
-            # #region agent log
-            _log_debug("parser.py:parse_movimentacoes:mov_skipped", "Movimentação ignorada (sem data ou tipo)", {"cells_count": len(cells)}, "G")
-            # #endregion
-    
-    # #region agent log
-    _log_debug("parser.py:parse_movimentacoes:result", "Parse de movimentações concluído", {"movimentacoes_count": len(movimentacoes)}, "G")
-    # #endregion
     
     return movimentacoes
 
