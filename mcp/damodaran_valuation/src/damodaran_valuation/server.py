@@ -71,10 +71,16 @@ def _similarity_lookup(table: str, column: str, value: str) -> Dict[str, Any] | 
         )
 
 
+def _maybe_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    return float(value)
+
+
 @mcp.tool()
 def get_sector_metrics(sector_name: str) -> Dict[str, Any]:
     """Return sector unlevered beta, tax rate, and average D/E ratio."""
-    row = _similarity_lookup("sector_metrics", "sector_name", sector_name)
+    row = _similarity_lookup("sector_betas", "sector_name", sector_name)
     if not row:
         return {"error": f"Sector not found: {sector_name}"}
     return {
@@ -101,7 +107,7 @@ def get_country_risk_premium(country: str) -> Dict[str, Any]:
 @mcp.tool()
 def calculate_levered_beta(sector_name: str, current_de_ratio: float) -> Dict[str, Any]:
     """Apply Hamada formula using sector unlevered beta and tax rate."""
-    row = _similarity_lookup("sector_metrics", "sector_name", sector_name)
+    row = _similarity_lookup("sector_betas", "sector_name", sector_name)
     if not row:
         return {"error": f"Sector not found: {sector_name}"}
     beta_u = float(row["unlevered_beta"])
@@ -137,6 +143,24 @@ def get_synthetic_spread(interest_coverage_ratio: float) -> Dict[str, Any]:
         "spread": float(row["spread"]),
         "min_icr": None if row["min_icr"] is None else float(row["min_icr"]),
         "max_icr": None if row["max_icr"] is None else float(row["max_icr"]),
+    }
+
+
+@mcp.tool()
+def get_sector_benchmarks(sector_name: str) -> Dict[str, Any]:
+    """Return benchmark metrics for a sector (means only)."""
+    row = _similarity_lookup("sector_benchmarks", "sector_name", sector_name)
+    if not row:
+        return {"error": f"Sector not found: {sector_name}"}
+    return {
+        "sector_name": row["sector_name"],
+        "operating_margin_mean": _maybe_float(row["operating_margin_mean"]),
+        "ebitda_margin_mean": _maybe_float(row["ebitda_margin_mean"]),
+        "roic_mean": _maybe_float(row["roic_mean"]),
+        "roe_mean": _maybe_float(row["roe_mean"]),
+        "cost_of_capital_mean": _maybe_float(row["cost_of_capital_mean"]),
+        "sales_to_capital_mean": _maybe_float(row["sales_to_capital_mean"]),
+        "reinvestment_rate_mean": _maybe_float(row["reinvestment_rate_mean"]),
     }
 
 

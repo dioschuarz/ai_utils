@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import io
 import re
-from typing import Iterable, Optional, Tuple
+from typing import Dict, Iterable, Optional, Tuple
 
 import pandas as pd
 import requests
@@ -102,6 +102,322 @@ def _load_betas(payload: bytes) -> list[dict]:
                 "avg_de_ratio": de_ratio,
             }
         )
+    return records
+
+
+def _load_margins(payload: bytes) -> Dict[str, dict]:
+    df = pd.read_excel(
+        io.BytesIO(payload),
+        sheet_name="Industry Averages",
+        skiprows=8,
+    )
+    sector_col = _find_column(df, ["Industry Name", "Industry"])
+    op_margin_mean_col = _find_column(
+        df,
+        [
+            "Pre-tax, Pre-stock compensation Operating Margin",
+            "Pre-tax Unadjusted Operating Margin",
+            "Pre-tax Operating Margin",
+            "Pretax Operating Margin",
+            "Operating Margin (Pretax)",
+        ],
+    )
+    ebitda_mean_col = _find_column(
+        df,
+        [
+            "EBITDA/Sales",
+            "EBITDA / Sales",
+            "EBITDA Margin",
+        ],
+    )
+
+    records: Dict[str, dict] = {}
+    for _, row in df.iterrows():
+        sector = row.get(sector_col)
+        if not isinstance(sector, str):
+            continue
+        sector = sector.strip()
+        if not sector or sector.lower() in {"total", "average"}:
+            continue
+        key = _normalize_key(sector)
+        records[key] = {
+            "sector_name": sector,
+            "operating_margin_mean": _to_ratio(row.get(op_margin_mean_col)),
+            "ebitda_margin_mean": _to_ratio(row.get(ebitda_mean_col)),
+        }
+    return records
+
+
+def _load_roc(payload: bytes) -> Dict[str, dict]:
+    df = pd.read_excel(
+        io.BytesIO(payload),
+        sheet_name="Industry Averages",
+        skiprows=7,
+        header=0,
+    )
+    sector_col = _find_column(df, ["Industry Name", "Industry"])
+    roic_mean_col = _find_column(
+        df,
+        [
+            "Normalized ROIC (last 10 years)",
+            "Unadjusted pre-tax ROIC",
+            "ROIC",
+            "Return on Capital (ROIC)",
+        ],
+    )
+    wacc_mean_col = None
+    try:
+        wacc_mean_col = _find_column(
+            df,
+            [
+                "Cost of Capital",
+                "Cost of Capital (WACC)",
+                "WACC",
+            ],
+        )
+    except KeyError:
+        pass  # WACC not available
+
+    records: Dict[str, dict] = {}
+    for _, row in df.iterrows():
+        sector = row.get(sector_col)
+        if not isinstance(sector, str):
+            continue
+        sector = sector.strip()
+        if not sector or sector.lower() in {"total", "average"}:
+            continue
+        key = _normalize_key(sector)
+        records[key] = {
+            "roic_mean": _to_ratio(row.get(roic_mean_col)) if roic_mean_col else None,
+            "cost_of_capital_mean": _to_ratio(row.get(wacc_mean_col)) if wacc_mean_col else None,
+        }
+    return records
+
+
+def _load_capex(payload: bytes) -> Dict[str, dict]:
+    """Load Sales/Capital and Reinvestment Rate from capex.xls file."""
+    df = pd.read_excel(
+        io.BytesIO(payload),
+        sheet_name="Industry Averages",
+        skiprows=7,
+        header=0,
+    )
+    sector_col = _find_column(df, ["Industry Name", "Industry"])
+    
+    # Sales/Capital pode estar em diferentes formatos no capex.xls
+    sales_cap_mean_col = None
+    try:
+        sales_cap_mean_col = _find_column(
+            df,
+            [
+                "Sales/ Invested Capital (LTM)",
+                "Sales/Invested Capital (LTM)",
+                "Sales/Capital Ratio",
+                "Sales to Capital",
+                "Sales/Capital",
+                "Sales to Invested Capital",
+                "Sales/Invested Capital",
+            ],
+        )
+    except KeyError:
+        pass  # Pode não estar disponível
+    
+    # Reinvestment Rate
+    reinvest_mean_col = None
+    try:
+        reinvest_mean_col = _find_column(
+            df,
+            [
+                "Reinvestment Rate",
+                "Reinvestment rate",
+                "Reinvestment",
+            ],
+        )
+    except KeyError:
+        pass
+    
+
+    records: Dict[str, dict] = {}
+    for _, row in df.iterrows():
+        sector = row.get(sector_col)
+        if not isinstance(sector, str):
+            continue
+        sector = sector.strip()
+        if not sector or sector.lower() in {"total", "average"}:
+            continue
+        key = _normalize_key(sector)
+        records[key] = {
+            "sales_to_capital_mean": _to_float(row.get(sales_cap_mean_col)) if sales_cap_mean_col else None,
+            "reinvestment_rate_mean": _to_ratio(row.get(reinvest_mean_col)) if reinvest_mean_col else None,
+        }
+    return records
+
+
+def _load_wacc(payload: bytes) -> Dict[str, dict]:
+    """Load WACC (Cost of Capital) benchmarks from wacc.xls."""
+    # WACC tem header na linha 17 (skiprows=17), mas o header está na linha 1 dos dados
+    df = pd.read_excel(
+        io.BytesIO(payload),
+        sheet_name="Industry Averages",
+        skiprows=17,
+        header=None,
+    )
+    # Linha 1 (índice 1) tem os nomes das colunas
+    df.columns = df.iloc[1]
+    df = df[2:]  # Pular linha 0 (vazia) e linha 1 (header)
+    sector_col = _find_column(df, ["Industry Name", "Industry"])
+    
+    wacc_mean_col = None
+    try:
+        wacc_mean_col = _find_column(
+            df,
+            [
+                "Cost of Capital (Local Currency)",
+                "Cost of Capital",
+                "WACC",
+                "Weighted Average Cost of Capital",
+                "Cost of Capital (WACC)",
+            ],
+        )
+    except KeyError:
+        pass
+    
+    records: Dict[str, dict] = {}
+    for _, row in df.iterrows():
+        sector = row.get(sector_col)
+        if not isinstance(sector, str):
+            continue
+        sector = sector.strip()
+        if not sector or sector.lower() in {"total", "average"}:
+            continue
+        key = _normalize_key(sector)
+        records[key] = {
+            "cost_of_capital_mean": _to_ratio(row.get(wacc_mean_col)) if wacc_mean_col else None,
+        }
+    return records
+
+
+def _load_roe(payload: bytes) -> Dict[str, dict]:
+    """Load ROE benchmarks from roe.xls (adjusted for R&D when available)."""
+    df = pd.read_excel(
+        io.BytesIO(payload),
+        sheet_name="Industry Averages",
+        skiprows=7,
+        header=0,
+    )
+    sector_col = _find_column(df, ["Industry Name", "Industry"])
+
+    roe_col = None
+    try:
+        roe_col = _find_column(
+            df,
+            [
+                "ROE (adjusted for R&D)",
+                "ROE (unadjusted)",
+                "ROE",
+                "Return on Equity",
+            ],
+        )
+    except KeyError:
+        pass
+
+    records: Dict[str, dict] = {}
+    for _, row in df.iterrows():
+        sector = row.get(sector_col)
+        if not isinstance(sector, str):
+            continue
+        sector = sector.strip()
+        if not sector or sector.lower() in {"total", "average"}:
+            continue
+        key = _normalize_key(sector)
+        records[key] = {
+            "roe_mean": _to_ratio(row.get(roe_col)) if roe_col else None,
+        }
+    return records
+
+
+def _load_reinvestment(payload: bytes) -> Dict[str, dict]:
+    """Load reinvestment rate (fundamental growth in EBIT) from fundgrEB.xls."""
+    df = pd.read_excel(
+        io.BytesIO(payload),
+        sheet_name="Industry Averages",
+        skiprows=7,
+        header=0,
+    )
+    sector_col = _find_column(df, ["Industry Name", "Industry"])
+    reinvest_col = _find_column(df, ["Reinvestment Rate", "Reinvestment rate"])
+
+    records: Dict[str, dict] = {}
+    for _, row in df.iterrows():
+        sector = row.get(sector_col)
+        if not isinstance(sector, str):
+            continue
+        sector = sector.strip()
+        if not sector or sector.lower() in {"total", "average"}:
+            continue
+        key = _normalize_key(sector)
+        records[key] = {
+            "reinvestment_rate_mean": _to_ratio(row.get(reinvest_col)),
+        }
+    return records
+
+
+def _merge_benchmarks(
+    margins: Dict[str, dict],
+    roc: Dict[str, dict],
+    capex: Dict[str, dict],
+    wacc: Dict[str, dict] = None,
+    roe: Dict[str, dict] = None,
+    reinvest: Dict[str, dict] = None,
+) -> list[dict]:
+    """Merge benchmark data from multiple sources."""
+    if wacc is None:
+        wacc = {}
+    if roe is None:
+        roe = {}
+    if reinvest is None:
+        reinvest = {}
+    
+    records: list[dict] = []
+    for key, margin_row in margins.items():
+        roc_row = roc.get(key)
+        # Require at least margins and roc
+        if not roc_row:
+            continue
+        
+        # Merge all available data
+        merged = {**margin_row, **roc_row}
+        
+        # Adicionar dados de capex se disponíveis (Sales/Capital)
+        capex_row = capex.get(key) if capex else {}
+        if capex_row:
+            merged.update(capex_row)
+        else:
+            # Defaults para campos de capex
+            merged.setdefault("sales_to_capital_mean", None)
+        
+        # Adicionar WACC se disponível (sobrescreve o None do ROC se houver)
+        wacc_row = wacc.get(key) if wacc else {}
+        if wacc_row:
+            # WACC do arquivo wacc.xls tem prioridade sobre o None do ROC
+            if wacc_row.get("cost_of_capital_mean") is not None:
+                merged["cost_of_capital_mean"] = wacc_row["cost_of_capital_mean"]
+
+        # Adicionar ROE se disponível
+        roe_row = roe.get(key) if roe else {}
+        if roe_row and roe_row.get("roe_mean") is not None:
+            merged["roe_mean"] = roe_row["roe_mean"]
+        else:
+            merged.setdefault("roe_mean", None)
+
+        # Adicionar reinvestment rate se disponível (fundgrEB tem prioridade)
+        reinvest_row = reinvest.get(key) if reinvest else {}
+        if reinvest_row and reinvest_row.get("reinvestment_rate_mean") is not None:
+            merged["reinvestment_rate_mean"] = reinvest_row["reinvestment_rate_mean"]
+        else:
+            merged.setdefault("reinvestment_rate_mean", None)
+        
+        records.append(merged)
     return records
 
 
@@ -225,17 +541,58 @@ def ingest() -> None:
     betas_payload = _download_excel(settings.damodaran_betas_url)
     country_payload = _download_excel(settings.damodaran_country_risk_url)
     ratings_payload = _download_excel(settings.damodaran_ratings_url)
+    margin_payload = _download_excel(settings.damodaran_margin_url)
+    roc_payload = _download_excel(settings.damodaran_roc_url)
+    
+    # Carregar capex (substitui salescap)
+    capex = {}
+    try:
+        capex_payload = _download_excel(settings.damodaran_capex_url)
+        capex = _load_capex(capex_payload)
+    except Exception as e:
+        print(f"Warning: Could not load capex dataset: {e}")
+    
+    # Carregar WACC (opcional, mas recomendado)
+    wacc = {}
+    try:
+        wacc_payload = _download_excel(settings.damodaran_wacc_url)
+        wacc = _load_wacc(wacc_payload)
+    except Exception as e:
+        print(f"Warning: Could not load wacc dataset: {e}")
+
+    # Carregar ROE
+    roe = {}
+    try:
+        roe_payload = _download_excel(settings.damodaran_roe_url)
+        roe = _load_roe(roe_payload)
+    except Exception as e:
+        print(f"Warning: Could not load roe dataset: {e}")
+
+    # Carregar Reinvestment Rate (fundamental growth em EBIT)
+    reinvest = {}
+    try:
+        fundgreb_payload = _download_excel(settings.damodaran_fundgreb_url)
+        reinvest = _load_reinvestment(fundgreb_payload)
+    except Exception as e:
+        print(f"Warning: Could not load fundgrEB dataset: {e}")
 
     betas = _load_betas(betas_payload)
     countries = _load_country_risk(country_payload)
     ratings = _load_synthetic_ratings(ratings_payload)
+    margins = _load_margins(margin_payload)
+    roc = _load_roc(roc_payload)
+    
+    # Merge incluindo WACC, ROE e Reinvestment Rate (fundgrEB)
+    benchmarks = _merge_benchmarks(margins, roc, capex, wacc, roe, reinvest)
 
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("TRUNCATE sector_metrics, country_risk, synthetic_ratings;")
+            cur.execute(
+                "TRUNCATE sector_betas, sector_benchmarks, country_risk, synthetic_ratings;"
+            )
             cur.executemany(
                 """
-                INSERT INTO sector_metrics
+                INSERT INTO sector_betas
                     (sector_name, unlevered_beta, effective_tax_rate, avg_de_ratio)
                 VALUES (%(sector_name)s, %(unlevered_beta)s, %(effective_tax_rate)s, %(avg_de_ratio)s)
                 """,
@@ -256,6 +613,32 @@ def ingest() -> None:
                 VALUES (%(min_icr)s, %(max_icr)s, %(rating)s, %(spread)s)
                 """,
                 ratings,
+            )
+            cur.executemany(
+                """
+                INSERT INTO sector_benchmarks
+                    (
+                        sector_name,
+                        operating_margin_mean,
+                        ebitda_margin_mean,
+                        roic_mean,
+                        roe_mean,
+                        cost_of_capital_mean,
+                        sales_to_capital_mean,
+                        reinvestment_rate_mean
+                    )
+                VALUES (
+                    %(sector_name)s,
+                    %(operating_margin_mean)s,
+                    %(ebitda_margin_mean)s,
+                    %(roic_mean)s,
+                    %(roe_mean)s,
+                    %(cost_of_capital_mean)s,
+                    %(sales_to_capital_mean)s,
+                    %(reinvestment_rate_mean)s
+                )
+                """,
+                benchmarks,
             )
         conn.commit()
 

@@ -3,15 +3,15 @@
 FastMCP server exposing Damodaran valuation tools backed by a local Postgres cache.
 
 ## Services
-- MCP server (SSE): `http://localhost:8111`
-- Postgres (host): `localhost:5533` → container `5432`
+- MCP server (SSE): `http://localhost:8000`
+- Postgres (host): `localhost:5433` → container `5432`
 
 ## Environment
 Create a `.env` file in this folder with:
 
 ```
 MCP_HOST=0.0.0.0
-MCP_PORT=8111
+MCP_PORT=8000
 
 POSTGRES_HOST=damodaran-db
 POSTGRES_PORT=5432
@@ -23,6 +23,9 @@ POSTGRES_SSLMODE=disable
 DAMODARAN_BETAS_URL=https://www.stern.nyu.edu/~adamodar/pc/datasets/betas.xls
 DAMODARAN_COUNTRY_RISK_URL=https://www.stern.nyu.edu/~adamodar/pc/datasets/ctryprem.xls
 DAMODARAN_RATINGS_URL=https://www.stern.nyu.edu/~adamodar/pc/datasets/ratings.xls
+DAMODARAN_MARGIN_URL=https://www.stern.nyu.edu/~adamodar/pc/datasets/margin.xls
+DAMODARAN_ROC_URL=https://www.stern.nyu.edu/~adamodar/pc/datasets/roc.xls
+DAMODARAN_SALESCAP_URL=https://www.stern.nyu.edu/~adamodar/pc/datasets/salescap.xls
 ```
 
 ## Build and Run (Docker)
@@ -51,4 +54,5 @@ docker compose -f /home/ds/projects/ai_utils/mcp/damodaran_valuation/docker-comp
 - `get_country_risk_premium(country)`
 - `calculate_levered_beta(sector_name, current_de_ratio)`
 - `get_synthetic_spread(interest_coverage_ratio)`
+- `get_sector_benchmarks(sector_name)`
 
