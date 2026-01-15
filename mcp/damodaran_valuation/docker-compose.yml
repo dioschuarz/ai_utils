@@ -1,0 +1,38 @@
+services:
+  damodaran-db:
+    image: postgres:16
+    container_name: damodaran-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-damodaran}
+      POSTGRES_USER: ${POSTGRES_USER:-damodaran}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-damodaran}
+    volumes:
+      - damodaran_pg_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    ports:
+      - "5533:5432"
+    networks:
+      - investment-net
+
+  damodaran-mcp:
+    build:
+      context: .
+    container_name: damodaran-mcp
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - damodaran-db
+    ports:
+      - "8111:8111"
+    networks:
+      - investment-net
+
+volumes:
+  damodaran_pg_data:
+
+networks:
+  investment-net:
+    external: true
+
