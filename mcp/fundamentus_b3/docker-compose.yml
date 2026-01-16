@@ -1,0 +1,38 @@
+services:
+  fundamentus-db:
+    image: postgres:16
+    container_name: fundamentus-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fundamentus}
+      POSTGRES_USER: ${POSTGRES_USER:-fundamentus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fundamentus}
+    volumes:
+      - fundamentus_pg_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    ports:
+      - "5435:5432"
+    networks:
+      - investment-net
+
+  fundamentus-mcp:
+    build:
+      context: .
+    container_name: fundamentus-mcp
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - fundamentus-db
+    ports:
+      - "8101:8000"
+    networks:
+      - investment-net
+
+volumes:
+  fundamentus_pg_data:
+
+networks:
+  investment-net:
+    external: true
+
