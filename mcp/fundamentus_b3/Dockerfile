@@ -11,3 +11,4 @@ ENV PYTHONUNBUFFERED=1
 
 CMD ["python", "-m", "fundamentus_b3.server"]
 
+

@@ -260,3 +260,4 @@ print(result)
 
 This project is for internal/educational use. Ensure compliance with Fundamentus.com.br terms of service.
 
+

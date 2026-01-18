@@ -21,3 +21,4 @@ CREATE INDEX IF NOT EXISTS idx_b3_stock_cache_expires_at
 CREATE INDEX IF NOT EXISTS idx_b3_stock_cache_updated_at
     ON b3_stock_cache (updated_at);
 
+

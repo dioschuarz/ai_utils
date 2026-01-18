@@ -37,3 +37,4 @@ def get_settings() -> Settings:
         cache_ttl_hours=int(os.getenv("CACHE_TTL_HOURS", "24")),
     )
 
+
