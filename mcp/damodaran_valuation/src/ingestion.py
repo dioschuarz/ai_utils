@@ -9,8 +9,8 @@ from typing import Dict, Iterable, Optional, Tuple
 import pandas as pd
 import requests
 
-from damodaran_valuation.config import get_settings
-from damodaran_valuation.db import get_conn
+from config import get_settings
+from db import get_conn
 
 
 def _download_excel(url: str) -> bytes:
@@ -649,4 +649,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

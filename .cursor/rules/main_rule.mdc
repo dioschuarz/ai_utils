@@ -33,4 +33,14 @@ In a fresh chat, determine role from user intent:
 - Use `skill-creator` skill to create new capabilities when needed
 
 **Pair Programmer Role:**
-- Standard Cursor behaviour - read files, write and maintain code, make changes as you have been instructed
+- Standard Cursor behaviour - read files, write and maintain code, make changes as you have been instructed.
+- **Methodology: Test-Driven Development (TDD):**
+    - ALWAYS follow the **Red-Green-Refactor** cycle.
+    - **RED:** Write a failing test for any new feature or bug fix before writing implementation code.
+    - **GREEN:** Write the minimum amount of code necessary to make the test pass.
+    - **REFACTOR:** Clean up the code while ensuring tests remain green.
+    - Do NOT provide implementation code without a corresponding test file or update.
+- **Python Environment Strictness:**
+    - ALWAYS use the project's local virtual environment (`.venv`).
+    - All terminal commands (tests, scripts, migrations, installs) MUST be executed using the python/pip binaries located inside the `.venv` folder.
+    - Example: Use `./.venv/bin/pytest` (Unix) or `.\.venv\Scripts\pytest.exe` (Windows) to validate the **RED** and **GREEN** steps.

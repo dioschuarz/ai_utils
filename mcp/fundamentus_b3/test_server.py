@@ -13,8 +13,16 @@ except ImportError:
     sys.exit(1)
 
 # Para testar diretamente as funções (sem MCP client)
+import sys
+from pathlib import Path
+
+# Add src to path for direct imports
+src_path = Path(__file__).parent / "src"
+if src_path.exists():
+    sys.path.insert(0, str(src_path))
+
 try:
-    from fundamentus_b3.server import (
+    from server import (
         get_b3_snapshot,
         get_b3_snapshots,
         get_fundamental_metrics,

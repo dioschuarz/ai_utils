@@ -8,7 +8,8 @@ COPY src /app/src
 RUN pip install --no-cache-dir .
 
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app/src
 
-CMD ["python", "-m", "fundamentus_b3.server"]
+CMD ["python", "-m", "server"]
 
 

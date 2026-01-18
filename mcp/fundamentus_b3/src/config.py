@@ -36,5 +36,3 @@ def get_settings() -> Settings:
         db_sslmode=os.getenv("POSTGRES_SSLMODE", "disable"),
         cache_ttl_hours=int(os.getenv("CACHE_TTL_HOURS", "24")),
     )
-
-

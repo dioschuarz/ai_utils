@@ -46,7 +46,7 @@ Run ingestion after the DB is up:
 
 ```
 docker compose -f /home/ds/projects/ai_utils/mcp/damodaran_valuation/docker-compose.yml run --rm damodaran-mcp \
-  python -m damodaran_valuation.ingestion
+  python -m ingestion
 ```
 
 ## Tools
