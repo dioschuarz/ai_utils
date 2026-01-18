@@ -1,0 +1,15 @@
+[Unit]
+Description=MCP Servers (Damodaran Valuation and Fundamentus B3)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/ds/projects/ai_utils/mcp
+ExecStart=/home/ds/projects/ai_utils/mcp/start_servers.sh
+ExecStop=/home/ds/projects/ai_utils/mcp/stop_servers.sh
+User=%i
+
+[Install]
+WantedBy=multi-user.target

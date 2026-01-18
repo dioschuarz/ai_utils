@@ -1,8 +1,233 @@
-# e-SAJ Portal Scraper
+# AI Utils
+
+Coleção de ferramentas e servidores MCP (Model Context Protocol) para análise financeira e desenvolvimento de IA.
+
+## 📋 Índice
+
+- [MCP Servers](#mcp-servers)
+  - [Visão Geral](#visão-geral)
+  - [Início Rápido](#início-rápido)
+  - [Gerenciamento](#gerenciamento)
+  - [Conectando de Aplicações](#conectando-de-aplicações)
+- [Tools](#tools)
+  - [e-SAJ Scraper](#e-saj-scraper)
+
+---
+
+## MCP Servers
+
+### Visão Geral
+
+Este projeto contém servidores MCP (Model Context Protocol) construídos com **FastMCP** que fornecem ferramentas especializadas para análise financeira:
+
+- **Damodaran Valuation** - Ferramentas de valuation baseadas em dados do Prof. Aswath Damodaran
+- **Fundamentus B3** - Dados fundamentais de ações da B3 (Brasil)
+
+Ambos os servidores usam **FastMCP com SSE (Server-Sent Events)**, tornando-os acessíveis via HTTP de suas aplicações.
+
+### Servidores Disponíveis
+
+| Servidor | Endpoint | Porta | Descrição |
+|----------|----------|-------|-----------|
+| **Damodaran Valuation** | `http://localhost:8100/sse` | 8100 | Métricas de setores, betas, prêmios de risco por país, ratings sintéticos |
+| **Fundamentus B3** | `http://localhost:8101/sse` | 8101 | Dados fundamentais de ações da B3 com cache PostgreSQL |
+
+### Início Rápido
+
+Os servidores rodam em **modo daemon (background)** - você **NÃO precisa manter um terminal aberto**.
+
+#### Opção 1: Script Python (Recomendado)
+
+```bash
+# Iniciar todos os servidores em background
+python3 mcp/manage_mcp_servers.py start --unified
+
+# Verificar status
+python3 mcp/manage_mcp_servers.py status
+```
+
+#### Opção 2: Script Shell
+
+```bash
+# Iniciar
+./mcp/start_servers.sh
+
+# Parar
+./mcp/stop_servers.sh
+```
+
+#### Opção 3: Docker Compose Direto
+
+```bash
+cd mcp
+docker compose -f docker-compose.yml up -d
+```
+
+Os servidores reiniciam automaticamente se crasharem (`restart: unless-stopped`).
+
+### Gerenciamento
+
+O script `mcp/manage_mcp_servers.py` fornece uma interface CLI completa:
+
+```bash
+# Listar servidores disponíveis
+python3 mcp/manage_mcp_servers.py list
+
+# Iniciar todos os servidores (modo unificado)
+python3 mcp/manage_mcp_servers.py start --unified
+
+# Iniciar servidor específico
+python3 mcp/manage_mcp_servers.py start damodaran_valuation
+
+# Iniciar com rebuild
+python3 mcp/manage_mcp_servers.py start --unified --build
+
+# Parar todos os servidores
+python3 mcp/manage_mcp_servers.py stop --unified
+
+# Ver status
+python3 mcp/manage_mcp_servers.py status
+
+# Ver logs
+python3 mcp/manage_mcp_servers.py logs damodaran_valuation --follow
+```
+
+### Conectando de Aplicações
+
+#### Python Client
+
+```python
+import asyncio
+from mcp import ClientSession
+from mcp.client.sse import sse_client
+
+async def use_mcp_server():
+    url = "http://localhost:8100/sse"  # Damodaran server
+    
+    async with sse_client(url=url) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            
+            # Listar ferramentas disponíveis
+            tools = await session.list_tools()
+            print(f"Ferramentas: {[t.name for t in tools.tools]}")
+            
+            # Chamar uma ferramenta
+            result = await session.call_tool(
+                "get_sector_metrics",
+                arguments={"sector_name": "Technology"}
+            )
+            print(f"Resultado: {result.content}")
+
+asyncio.run(use_mcp_server())
+```
+
+#### Usando o Wrapper MCPClient
+
+Para maior conveniência, use a classe `MCPClient` de `mcp/client_example.py`:
+
+```python
+from mcp.client_example import MCPClient
+
+async def exemplo():
+    async with MCPClient("http://localhost:8100/sse") as client:
+        # Listar ferramentas
+        tools = await client.list_tools()
+        
+        # Chamar ferramentas
+        result = await client.call_tool(
+            "get_sector_metrics",
+            {"sector_name": "Technology"}
+        )
+        print(result)
+```
+
+#### Testando com MCP Inspector
+
+```bash
+# Servidor Damodaran
+npx @modelcontextprotocol/inspector --url http://localhost:8100/sse
+
+# Servidor Fundamentus
+npx @modelcontextprotocol/inspector --url http://localhost:8101/sse
+```
+
+### Ferramentas Disponíveis
+
+#### Damodaran Valuation
+
+- `get_sector_metrics(sector_name)` - Retorna beta unlevered, taxa de imposto e D/E médio do setor
+- `get_country_risk_premium(country)` - Retorna prêmio de risco de equity e país
+- `calculate_levered_beta(sector_name, current_de_ratio)` - Aplica fórmula de Hamada
+- `get_synthetic_spread(interest_coverage_ratio)` - Retorna rating e spread baseado no ICR
+- `get_sector_benchmarks(sector_name)` - Retorna métricas de benchmark do setor
+
+#### Fundamentus B3
+
+- `get_b3_snapshot(ticker)` - Snapshot completo de uma ação B3
+- `get_b3_snapshots(tickers)` - Snapshots em lote (otimizado com cache)
+- `get_fundamental_metrics(ticker)` - Métricas fundamentais essenciais
+- `search_tickers(query)` - Buscar ações por nome ou segmento
+- `refresh_cache(ticker)` - Forçar atualização do cache
+- `list_cached_tickers()` - Listar tickers em cache
+
+### Configuração de Rede
+
+Os servidores MCP estão configurados para:
+- Escutar em `0.0.0.0` (todas as interfaces) dentro dos containers
+- Expor portas no `localhost`:
+  - Damodaran: `8100:8000` (host:container)
+  - Fundamentus: `8101:8000` (host:container)
+- Usar a rede Docker compartilhada `investment-net` para comunicação entre containers
+
+**Acessando de outras aplicações:**
+- **Mesma máquina**: Use `http://localhost:8100/sse` ou `http://localhost:8101/sse`
+- **Rede Docker**: Use `http://damodaran-mcp:8000/sse` ou `http://fundamentus-mcp:8000/sse`
+- **Máquina remota**: Certifique-se de que as portas estão expostas e use o IP do host
+
+### Inicialização Automática no Boot (Opcional)
+
+Para iniciar automaticamente quando o sistema ligar:
+
+1. Edite o arquivo de serviço systemd:
+   ```bash
+   nano mcp/mcp-servers.service
+   # Ajuste os caminhos se necessário
+   ```
+
+2. Instale o serviço:
+   ```bash
+   sudo cp mcp/mcp-servers.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable mcp-servers.service
+   sudo systemctl start mcp-servers.service
+   ```
+
+3. Verifique o status:
+   ```bash
+   sudo systemctl status mcp-servers.service
+   ```
+
+### Requisitos
+
+- Docker e Docker Compose instalados
+- Python 3.10+ (o script de gerenciamento usa apenas biblioteca padrão)
+
+### Documentação Adicional
+
+- **README individual do Damodaran**: `mcp/damodaran_valuation/README.md`
+- **README individual do Fundamentus**: `mcp/fundamentus_b3/README.md`
+- **Exemplo de cliente**: `mcp/client_example.py`
+
+---
+
+## Tools
+
+### e-SAJ Scraper
 
 Scraper para extrair dados de processos do portal e-SAJ do Tribunal de Justiça de São Paulo (TJSP) usando Crawl4AI.
 
-## Características
+#### Características
 
 - Extração completa de dados de processos judiciais
 - Suporte para conteúdo JavaScript dinâmico (via Crawl4AI)
@@ -10,266 +235,98 @@ Scraper para extrair dados de processos do portal e-SAJ do Tribunal de Justiça 
 - Retorno em JSON estruturado
 - Preparado para futura conversão em servidor MCP
 
-## Instalação
+#### Instalação
 
 Este projeto usa `uv` para gerenciamento de pacotes Python.
 
-### Pré-requisitos
-
+**Pré-requisitos:**
 - Python 3.10 ou superior
 - [uv](https://github.com/astral-sh/uv) instalado
 
-### Instalação das dependências
-
+**Instalação das dependências:**
 ```bash
 cd tools
 uv sync
 
 # Instalar navegadores do Playwright (requerido pelo Crawl4AI)
 playwright install chromium
-
-# Instalar dependências do sistema (pode requerer sudo)
 playwright install-deps chromium
-# OU manualmente (Ubuntu/Debian):
-# sudo apt-get install -y libnspr4 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 libpango-1.0-0 libcairo2
 ```
 
-Ou para instalar globalmente:
+#### Uso
 
+**Via CLI:**
 ```bash
-cd tools
-uv pip install -e .
-```
-
-## Uso
-
-### Via CLI
-
-#### Processo único
-
-```bash
-# Usando o módulo
+# Processo único
 python -m esaj_scraper 1002589-56.2018.8.26.0053
 
-# Ou usando o script principal
-python main.py 1002589-56.2018.8.26.0053
+# Múltiplos processos
+python main.py 1002589-56.2018.8.26.0053 1061517-43.2024.8.26.0100
 ```
 
-#### Múltiplos processos
-
-```bash
-python main.py 1002589-56.2018.8.26.0053 1061517-43.2024.8.26.0100 1090340-03.2019.8.26.0100
-```
-
-### Via Python
-
+**Via Python:**
 ```python
 import asyncio
 from esaj_scraper import EsajScraper
 
 async def main():
     scraper = EsajScraper()
-    
-    # Processo único
     processo = await scraper.scrape("1002589-56.2018.8.26.0053")
     print(processo.to_json_dict())
-    
-    # Múltiplos processos
-    processos = await scraper.scrape_multiple([
-        "1002589-56.2018.8.26.0053",
-        "1061517-43.2024.8.26.0100",
-        "1090340-03.2019.8.26.0100"
-    ])
-    
-    for processo in processos:
-        print(processo.to_json_dict())
 
 asyncio.run(main())
 ```
 
-## Testes
-
-Os testes usam os seguintes números de processo:
-
-1. `1002589-56.2018.8.26.0053`
-2. `1061517-43.2024.8.26.0100`
-3. `1090340-03.2019.8.26.0100`
-
-### Executar testes
+#### Testes
 
 ```bash
 cd tools
 python tests/test_scraper.py
 ```
 
-Os testes irão:
-1. Testar extração de um processo único
-2. Testar extração de múltiplos processos
-3. Testar cada processo individualmente
-4. Salvar resultados JSON em arquivos na pasta `tests/`
+#### Estrutura de Dados
 
-## Estrutura de Dados
+O scraper retorna um objeto `ProcessoCompleto` com:
+- Informações principais (número, classe, assunto, foro, vara, juiz, etc.)
+- Partes (requerente/requerido, advogados)
+- Movimentações (data, tipo, descrição, links)
+- Petições
+- Incidentes/Apensos
+- Metadata (data de extração, status, erros)
 
-O scraper retorna um objeto `ProcessoCompleto` com a seguinte estrutura:
+Para mais detalhes, veja a documentação completa em `tools/README.md`.
 
-```json
-{
-  "informacoes_principais": {
-    "numero_processo": "1002589-56.2018.8.26.0053",
-    "classe": "Procedimento Comum Cível",
-    "assunto": "Multas e demais Sanções",
-    "foro": "Foro Central - Fazenda Pública/Acidentes",
-    "vara": "10ª Vara de Fazenda Pública",
-    "juiz": "Maricy Maraldi",
-    "distribuicao": "23/01/2018 às 15:30 - Livre",
-    "controle": "2018/000131",
-    "area": "Cível",
-    "valor_acao": "R$ 11.358,14",
-    "tramitacao_prioritaria": false
-  },
-  "partes": [
-    {
-      "tipo_participacao": "Reqte",
-      "nome": "SERVOPA ADMINISTRADORA DE CONSÓRCIO LTDA",
-      "advogados": [
-        {
-          "nome": "Gabriel Antonio Henke Neiva de Lima Filho",
-          "oab": "23378/PR"
-        }
-      ]
-    }
-  ],
-  "movimentacoes": [
-    {
-      "data": "07/07/2025",
-      "tipo": "Execução/Cumprimento de Sentença Iniciada (o)",
-      "descricao": "Execução/Cumprimento de Sentença Iniciada (o)",
-      "detalhes": "0018720-79.2025.8.26.0053 - Cumprimento de sentença",
-      "link_documento": null
-    }
-  ],
-  "peticoes": [
-    {
-      "data": "12/09/2018",
-      "tipo": "Emenda à Inicial"
-    }
-  ],
-  "incidentes": [
-    {
-      "data_recebimento": "03/07/2025",
-      "classe": "Cumprimento de sentença",
-      "numero_processo": "0018720-79.2025.8.26.0053",
-      "tipo": null
-    }
-  ],
-  "metadata": {
-    "data_extracao": "2025-01-XXTXX:XX:XX",
-    "status": "success",
-    "erro": null
-  }
-}
-```
-
-## Campos Extraídos
-
-### Informações Principais
-- Número do processo
-- Classe
-- Assunto
-- Foro
-- Vara
-- Juiz
-- Distribuição
-- Controle
-- Área
-- Valor da ação
-- Tramitação prioritária
-
-### Partes
-- Tipo de participação (Requerente/Requerido)
-- Nome da parte
-- Advogados (nome e OAB)
-
-### Movimentações
-- Data
-- Tipo/Movimento
-- Descrição
-- Detalhes
-- Links para documentos (quando disponível)
-
-### Petições
-- Data
-- Tipo de petição
-
-### Incidentes/Apensos
-- Data de recebimento
-- Classe
-- Número do processo relacionado
-
-## Formato do Número de Processo
-
-O scraper aceita números de processo no formato unificado:
-- `NNNNNNN-DD.AAAA.J.TR.OOOO`
-- Exemplo: `1002589-56.2018.8.26.0053`
-
-Onde:
-- `NNNNNNN`: Número sequencial (7 dígitos)
-- `DD`: Dígito verificador (2 dígitos)
-- `AAAA`: Ano (4 dígitos)
-- `J`: Segmento do Poder Judiciário (1 dígito)
-- `TR`: Tribunal (2 dígitos)
-- `OOOO`: Foro (4 dígitos)
-
-## Tratamento de Erros
-
-O scraper trata os seguintes casos de erro:
-- Processo não encontrado
-- Timeout de requisições
-- Mudanças na estrutura do HTML
-- Dados incompletos
-- Erros de rede
-
-Em caso de erro, o objeto retornado terá `metadata.status = "error"` e `metadata.erro` contendo a mensagem de erro.
+---
 
 ## Estrutura do Projeto
 
 ```
-tools/
-├── __init__.py
-├── pyproject.toml
-├── main.py
-├── esaj_scraper/
-│   ├── __init__.py
-│   ├── scraper.py          # Classe principal do scraper
-│   ├── parser.py           # Funções de parsing do HTML
-│   ├── models.py           # Modelos de dados (Pydantic)
-│   └── config.py           # Configurações
-├── tests/
-│   ├── __init__.py
-│   └── test_scraper.py     # Testes com os 3 números de processo
-└── README.md
+ai_utils/
+├── mcp/                          # Servidores MCP
+│   ├── docker-compose.yml        # Compose unificado para todos os servidores
+│   ├── manage_mcp_servers.py     # Script de gerenciamento
+│   ├── client_example.py        # Exemplo de cliente Python
+│   ├── start_servers.sh          # Script de inicialização
+│   ├── stop_servers.sh           # Script de parada
+│   ├── mcp-servers.service       # Serviço systemd (opcional)
+│   ├── damodaran_valuation/      # Servidor Damodaran
+│   │   ├── docker-compose.yml
+│   │   ├── Dockerfile
+│   │   ├── README.md
+│   │   └── src/
+│   └── fundamentus_b3/            # Servidor Fundamentus
+│       ├── docker-compose.yml
+│       ├── Dockerfile
+│       ├── README.md
+│       └── src/
+├── tools/                         # Ferramentas diversas
+│   ├── esaj_scraper/             # Scraper e-SAJ
+│   └── tests/
+└── README.md                      # Este arquivo
 ```
 
-## Dependências
-
-- `crawl4ai>=0.3.0` - Framework para web scraping com suporte a JavaScript
-- `pydantic>=2.0.0` - Validação e serialização de dados
-- `beautifulsoup4>=4.12.0` - Parsing de HTML
-- `lxml>=5.0.0` - Parser XML/HTML rápido
-- `aiohttp>=3.9.0` - Cliente HTTP assíncrono
-
-## Notas
-
-- O scraper respeita os termos de uso do portal e-SAJ
-- Recomenda-se usar com moderação para não sobrecarregar o servidor
-- O portal pode implementar proteções contra scraping (CAPTCHA, rate limiting, etc.)
-- Estrutura do HTML pode mudar, exigindo atualizações no parser
-
-## Preparação para MCP Server
-
-Este projeto foi estruturado para facilitar a conversão futura em um servidor MCP (Model Context Protocol). Os módulos são independentes e a interface CLI pode ser facilmente adaptada para servir como endpoints MCP.
+---
 
 ## Licença
 
-Este projeto é para uso interno/educacional. Certifique-se de respeitar os termos de uso do portal e-SAJ ao utilizá-lo.
-
+Este projeto é para uso interno/educacional. Certifique-se de respeitar os termos de uso dos serviços externos utilizados.

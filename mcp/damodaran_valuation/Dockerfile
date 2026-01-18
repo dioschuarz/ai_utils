@@ -10,6 +10,6 @@ RUN pip install --no-cache-dir .
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app/src
 
-CMD ["python", "-m", "server"]
+CMD ["python", "-m", "src.server"]
 
 
