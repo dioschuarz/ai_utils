@@ -10,8 +10,8 @@ from typing import Any, Dict
 import numpy as np
 import pandas as pd
 
-from fundamentus_b3.config import get_settings
-from fundamentus_b3.db import get_conn
+from config import get_settings
+from db import get_conn
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ def get_cached(ticker: str) -> Dict[str, Any] | None:
     Returns:
         Cached data dictionary or None if not found/expired
     """
-    from fundamentus_b3.fundamentus_client import normalize_ticker
+    from fundamentus_client import normalize_ticker
     
     normalized_ticker = normalize_ticker(ticker)
     
@@ -89,7 +89,7 @@ def save_to_cache(ticker: str, data: Dict[str, Any]) -> None:
         ticker: Stock ticker (will be normalized)
         data: Data dictionary to cache
     """
-    from fundamentus_b3.fundamentus_client import normalize_ticker
+    from fundamentus_client import normalize_ticker
     
     normalized_ticker = normalize_ticker(ticker)
     settings = get_settings()
@@ -138,7 +138,7 @@ def is_expired(ticker: str) -> bool:
     Returns:
         True if expired or not found, False if valid
     """
-    from fundamentus_b3.fundamentus_client import normalize_ticker
+    from fundamentus_client import normalize_ticker
     
     normalized_ticker = normalize_ticker(ticker)
     
@@ -216,4 +216,3 @@ def list_cached_tickers() -> list[str]:
     except Exception as e:
         logger.error(f"Error listing cached tickers: {e}")
         return []
-

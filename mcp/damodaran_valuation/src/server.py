@@ -7,8 +7,8 @@ from typing import Any, Dict
 import psycopg
 from mcp.server.fastmcp import FastMCP
 
-from damodaran_valuation.config import get_settings
-from damodaran_valuation.db import get_conn
+from config import get_settings
+from db import get_conn
 
 _settings = get_settings()
 mcp = FastMCP(
@@ -170,4 +170,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

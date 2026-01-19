@@ -79,4 +79,3 @@ def get_settings() -> Settings:
             "https://www.stern.nyu.edu/~adamodar/pc/datasets/wacc.xls",
         ),
     )
-

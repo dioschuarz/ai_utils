@@ -1,0 +1,109 @@
+# Docker Compose file to manage all MCP servers
+# This allows you to start/stop all servers with a single command:
+#   docker compose -f mcp/docker-compose.yml up -d
+#   docker compose -f mcp/docker-compose.yml down
+
+services:
+  # Damodaran Valuation MCP Server
+  damodaran-db:
+    image: postgres:16
+    container_name: damodaran-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DAMODARAN_POSTGRES_DB:-damodaran}
+      POSTGRES_USER: ${DAMODARAN_POSTGRES_USER:-damodaran}
+      POSTGRES_PASSWORD: ${DAMODARAN_POSTGRES_PASSWORD:-damodaran}
+    volumes:
+      - damodaran_pg_data:/var/lib/postgresql/data
+      - ./damodaran_valuation/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    ports:
+      - "5533:5432"
+    networks:
+      - investment-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DAMODARAN_POSTGRES_USER:-damodaran}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  damodaran-mcp:
+    build:
+      context: ./damodaran_valuation
+    container_name: damodaran-mcp
+    restart: unless-stopped
+    env_file:
+      - ./damodaran_valuation/.env
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+      - POSTGRES_HOST=damodaran-db
+      - POSTGRES_PORT=5432
+    depends_on:
+      damodaran-db:
+        condition: service_healthy
+    ports:
+      - "8100:8000"
+    networks:
+      - investment-net
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/sse\")' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Fundamentus B3 MCP Server
+  fundamentus-db:
+    image: postgres:16
+    container_name: fundamentus-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${FUNDAMENTUS_POSTGRES_DB:-fundamentus}
+      POSTGRES_USER: ${FUNDAMENTUS_POSTGRES_USER:-fundamentus}
+      POSTGRES_PASSWORD: ${FUNDAMENTUS_POSTGRES_PASSWORD:-fundamentus}
+    volumes:
+      - fundamentus_pg_data:/var/lib/postgresql/data
+      - ./fundamentus_b3/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    ports:
+      - "5435:5432"
+    networks:
+      - investment-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${FUNDAMENTUS_POSTGRES_USER:-fundamentus}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  fundamentus-mcp:
+    build:
+      context: ./fundamentus_b3
+    container_name: fundamentus-mcp
+    restart: unless-stopped
+    env_file:
+      - ./fundamentus_b3/.env
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+      - POSTGRES_HOST=fundamentus-db
+      - POSTGRES_PORT=5432
+    depends_on:
+      fundamentus-db:
+        condition: service_healthy
+    ports:
+      - "8101:8000"
+    networks:
+      - investment-net
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/sse\")' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  damodaran_pg_data:
+  fundamentus_pg_data:
+
+networks:
+  investment-net:
+    driver: bridge

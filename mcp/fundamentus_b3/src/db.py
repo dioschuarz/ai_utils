@@ -8,7 +8,7 @@ from typing import Iterator
 import psycopg
 from psycopg.rows import dict_row
 
-from fundamentus_b3.config import get_settings
+from config import get_settings
 
 
 @contextmanager
@@ -27,5 +27,3 @@ def get_conn() -> Iterator[psycopg.Connection]:
         yield conn
     finally:
         conn.close()
-
-

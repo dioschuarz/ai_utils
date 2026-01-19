@@ -7,14 +7,14 @@ from typing import Any, Dict, List
 
 from mcp.server.fastmcp import FastMCP
 
-from fundamentus_b3.cache import (
+from cache import (
     clear_expired,
     get_cached,
     list_cached_tickers as list_cached_tickers_from_cache,
     save_to_cache,
 )
-from fundamentus_b3.config import get_settings
-from fundamentus_b3.fundamentus_client import (
+from config import get_settings
+from fundamentus_client import (
     get_papel_data,
     normalize_ticker,
     search_tickers as search_tickers_client,
@@ -291,4 +291,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
