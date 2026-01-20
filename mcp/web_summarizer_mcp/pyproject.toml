@@ -1,0 +1,24 @@
+[project]
+name = "web-summarizer-mcp"
+version = "0.1.0"
+description = "Web Summarizer MCP Server"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.0.0",
+    "crawl4ai>=0.3.0",
+    "google-genai>=1.0.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "aiohttp>=3.9.0",
+]
+
+[tool.uv]
+package = true
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false

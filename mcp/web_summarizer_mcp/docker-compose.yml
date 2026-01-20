@@ -1,0 +1,16 @@
+services:
+  web-summarizer-mcp:
+    build:
+      context: .
+    container_name: web-summarizer-mcp
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8103:8000"
+    networks:
+      - investment-net
+
+networks:
+  investment-net:
+    external: true

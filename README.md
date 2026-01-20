@@ -22,8 +22,9 @@ Este projeto contém servidores MCP (Model Context Protocol) construídos com **
 
 - **Damodaran Valuation** - Ferramentas de valuation baseadas em dados do Prof. Aswath Damodaran
 - **Fundamentus B3** - Dados fundamentais de ações da B3 (Brasil)
+- **YFinance** - Dados de mercado global via Yahoo Finance (ações, ETFs, notícias, gráficos)
 
-Ambos os servidores usam **FastMCP com SSE (Server-Sent Events)**, tornando-os acessíveis via HTTP de suas aplicações.
+Todos os servidores usam **FastMCP com SSE (Server-Sent Events)**, tornando-os acessíveis via HTTP de suas aplicações.
 
 ### Servidores Disponíveis
 
@@ -31,6 +32,7 @@ Ambos os servidores usam **FastMCP com SSE (Server-Sent Events)**, tornando-os a
 |----------|----------|-------|-----------|
 | **Damodaran Valuation** | `http://localhost:8100/sse` | 8100 | Métricas de setores, betas, prêmios de risco por país, ratings sintéticos |
 | **Fundamentus B3** | `http://localhost:8101/sse` | 8101 | Dados fundamentais de ações da B3 com cache PostgreSQL |
+| **YFinance** | `http://localhost:8102/sse` | 8102 | Dados de mercado global, notícias, histórico de preços e gráficos técnicos |
 
 ### Início Rápido
 
@@ -171,6 +173,14 @@ npx @modelcontextprotocol/inspector --url http://localhost:8101/sse
 - `refresh_cache(ticker)` - Forçar atualização do cache
 - `list_cached_tickers()` - Listar tickers em cache
 
+#### YFinance
+
+- `yfinance_get_ticker_info(symbol)` - Informações completas de ações (dados financeiros, valuation, trading)
+- `yfinance_get_ticker_news(symbol)` - Notícias e press releases recentes
+- `yfinance_search(query, search_type)` - Buscar ações, ETFs e notícias
+- `yfinance_get_top(sector, top_type, top_n)` - Top ETFs, fundos, empresas por setor
+- `yfinance_get_price_history(symbol, period, interval, chart_type)` - Histórico de preços com opção de gráficos técnicos
+
 ### Configuração de Rede
 
 Os servidores MCP estão configurados para:
@@ -217,6 +227,7 @@ Para iniciar automaticamente quando o sistema ligar:
 
 - **README individual do Damodaran**: `mcp/damodaran_valuation/README.md`
 - **README individual do Fundamentus**: `mcp/fundamentus_b3/README.md`
+- **README individual do YFinance**: `mcp/yfinance_mcp/README.md`
 - **Exemplo de cliente**: `mcp/client_example.py`
 
 ---

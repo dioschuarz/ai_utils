@@ -1,0 +1,1 @@
+"""YFinance MCP Server."""
