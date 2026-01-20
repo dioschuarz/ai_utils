@@ -1,0 +1,16 @@
+services:
+  yfinance-mcp:
+    build:
+      context: .
+    container_name: yfinance-mcp
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8102:8000"
+    networks:
+      - investment-net
+
+networks:
+  investment-net:
+    external: true

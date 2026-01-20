@@ -1,0 +1,1 @@
+"""Web Summarizer MCP Server."""

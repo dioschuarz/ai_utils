@@ -100,6 +100,50 @@ services:
       retries: 3
       start_period: 40s
 
+  # YFinance MCP Server
+  yfinance-mcp:
+    build:
+      context: ./yfinance_mcp
+    container_name: yfinance-mcp
+    restart: unless-stopped
+    env_file:
+      - ./yfinance_mcp/.env
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+    ports:
+      - "8102:8000"
+    networks:
+      - investment-net
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/sse\")' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Web Summarizer MCP Server
+  web-summarizer-mcp:
+    build:
+      context: ./web_summarizer_mcp
+    container_name: web-summarizer-mcp
+    restart: unless-stopped
+    env_file:
+      - ./web_summarizer_mcp/.env
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+    ports:
+      - "8103:8000"
+    networks:
+      - investment-net
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/sse\")' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
 volumes:
   damodaran_pg_data:
   fundamentus_pg_data:

@@ -1,0 +1,12 @@
+Summarize this financial/news article in Portuguese:
+- Focus on key facts, numbers, and implications
+- Highlight market impact and company-specific information
+- Keep summary concise (200-300 words)
+- Bring 5 to 10 key insights to the summary
+- Maintain objectivity
+
+Title: {title}
+URL: {url}
+
+Content:
+{content}
