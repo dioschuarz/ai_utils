@@ -180,11 +180,11 @@ async def get_ticker_news_summarized(
     timeout_per_url: Annotated[
         int,
         Field(
-            description="Timeout in seconds for each URL crawl and summarization (default: 30, range: 10-120)",
+            description="Timeout in seconds for each URL crawl and summarization (default: 120, range: 10-120)",
             ge=10,
             le=120,
         ),
-    ] = 30,
+    ] = 120,
     fallback_on_error: Annotated[
         bool,
         Field(
