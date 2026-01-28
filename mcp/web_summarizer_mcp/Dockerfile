@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
 
@@ -28,12 +28,17 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_HTTP_TIMEOUT=300
+ENV UV_CONCURRENT_DOWNLOADS=4
+
 COPY pyproject.toml README.md /app/
 COPY src /app/src
 COPY prompts /app/prompts
 
 # Install Python dependencies
-RUN pip install --no-cache-dir .
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system -r pyproject.toml
 
 # Install Playwright browsers (Chromium for Crawl4AI)
 RUN playwright install chromium

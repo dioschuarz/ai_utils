@@ -25,7 +25,15 @@ async def get_crawler() -> AsyncWebCrawler:
         if _crawler is None:
             browser_config = BrowserConfig(
                 headless=True,
-                verbose=False,
+                verbose=True, # Enable verbose logging to debug issues
+                # Add container-friendly arguments to prevent crashes
+                args=[
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--disable-software-rasterizer",
+                    "--window-size=1920,1080",
+                ],
             )
             _crawler = AsyncWebCrawler(config=browser_config)
             await _crawler.__aenter__()
@@ -59,11 +67,15 @@ async def crawl_url(url: str, timeout: int = 30, max_retries: int = 2) -> dict:
 
     crawler = await get_crawler()
 
+    # Optimized configuration for robustness and clean content
     run_config = CrawlerRunConfig(
         cache_mode=CacheMode.BYPASS,  # Always fetch fresh content
         word_count_threshold=10,  # Minimum word count to consider valid content
         exclude_external_links=True,  # Don't follow external links
         wait_for_images=False,  # Don't wait for images to load (faster)
+        page_timeout=timeout * 1000, # Page timeout in ms
+        wait_until="domcontentloaded", # Faster than networkidle
+        remove_overlay_elements=True, # Remove popups/modals
     )
 
     last_error = None
@@ -71,10 +83,11 @@ async def crawl_url(url: str, timeout: int = 30, max_retries: int = 2) -> dict:
         try:
             logger.info(f"Crawling {url} (attempt {attempt + 1}/{max_retries + 1})")
 
-            # Use asyncio.wait_for to enforce timeout
+            # Use asyncio.wait_for to enforce timeout at the task level
+            # We add a small buffer (5s) to allow the internal page_timeout to trigger first if needed
             result = await asyncio.wait_for(
                 crawler.arun(url=url, config=run_config),
-                timeout=timeout,
+                timeout=timeout + 5,
             )
 
             if result.success and result.markdown:
@@ -93,12 +106,8 @@ async def crawl_url(url: str, timeout: int = 30, max_retries: int = 2) -> dict:
                     logger.warning(
                         f"Content too short for {url}: {len(content)} characters"
                     )
-                    return {
-                        "success": False,
-                        "content": "",
-                        "error": f"Content too short or empty: {len(content)} characters",
-                        "error_code": "CRAWL_ERROR",
-                    }
+                    # Content too short might mean dynamic loading failed or blocked
+                    last_error = f"Content too short or empty: {len(content)} characters"
             else:
                 error_msg = result.error_message or "Unknown crawl error"
                 logger.warning(f"Crawl failed for {url}: {error_msg}")
@@ -108,15 +117,17 @@ async def crawl_url(url: str, timeout: int = 30, max_retries: int = 2) -> dict:
             error_msg = f"Timeout after {timeout}s"
             logger.warning(f"Timeout crawling {url}: {error_msg}")
             last_error = error_msg
-            if attempt < max_retries:
-                await asyncio.sleep(1)  # Brief pause before retry
 
         except Exception as e:
             error_msg = f"Error crawling {url}: {str(e)}"
             logger.error(error_msg, exc_info=True)
             last_error = error_msg
-            if attempt < max_retries:
-                await asyncio.sleep(1)  # Brief pause before retry
+        
+        # Retry logic with exponential backoff
+        if attempt < max_retries:
+            wait_time = 2 ** attempt  # 1, 2, 4, 8...
+            logger.info(f"Retrying {url} in {wait_time}s...")
+            await asyncio.sleep(wait_time)
 
     # All retries failed
     return {

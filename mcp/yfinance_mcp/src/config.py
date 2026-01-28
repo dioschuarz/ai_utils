@@ -44,6 +44,6 @@ def get_settings() -> Settings:
         mcp_host=os.getenv("MCP_HOST", "0.0.0.0"),
         mcp_port=int(os.getenv("MCP_PORT", "8000")),
         web_summarizer_url=web_summarizer_url,
-        web_summarizer_timeout=int(os.getenv("WEB_SUMMARIZER_TIMEOUT", "60")),
+        web_summarizer_timeout=int(os.getenv("WEB_SUMMARIZER_TIMEOUT", "300")),
         max_news_to_summarize=int(os.getenv("MAX_NEWS_TO_SUMMARIZE", "10")),
     )

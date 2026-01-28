@@ -34,6 +34,10 @@ _rate_limiter = TokenRateLimiter(
 
 _summarizer = Summarizer(_settings, _rate_limiter)
 
+# Semaphore for concurrent crawling (browser is resource intensive)
+# We use the same limit as max_concurrent_requests, or could be separate.
+_crawl_semaphore = asyncio.Semaphore(_settings.max_concurrent_requests)
+
 
 @mcp.tool(
     name="summarize_web",
@@ -145,12 +149,13 @@ async def summarize_web(
         url_start_time = time.time()
 
         try:
-            # Step 1: Crawl URL
-            crawl_result = await crawl_url(
-                url=url,
-                timeout=timeout_per_url,
-                max_retries=_settings.crawl_max_retries,
-            )
+            # Step 1: Crawl URL (with semaphore to limit concurrent browser instances)
+            async with _crawl_semaphore:
+                crawl_result = await crawl_url(
+                    url=url,
+                    timeout=timeout_per_url,
+                    max_retries=_settings.crawl_max_retries,
+                )
 
             if not crawl_result["success"]:
                 return {

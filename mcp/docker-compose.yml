@@ -21,7 +21,7 @@ services:
     networks:
       - investment-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DAMODARAN_POSTGRES_USER:-damodaran}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DAMODARAN_POSTGRES_USER:-damodaran}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,6 +29,7 @@ services:
   damodaran-mcp:
     build:
       context: ./damodaran_valuation
+      network: host
     container_name: damodaran-mcp
     restart: unless-stopped
     env_file:
@@ -46,7 +47,7 @@ services:
     networks:
       - investment-net
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/sse\")' || exit 1"]
+      test: [ "CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/sse\")' || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -69,7 +70,7 @@ services:
     networks:
       - investment-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${FUNDAMENTUS_POSTGRES_USER:-fundamentus}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${FUNDAMENTUS_POSTGRES_USER:-fundamentus}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -77,6 +78,7 @@ services:
   fundamentus-mcp:
     build:
       context: ./fundamentus_b3
+      network: host
     container_name: fundamentus-mcp
     restart: unless-stopped
     env_file:
@@ -94,7 +96,7 @@ services:
     networks:
       - investment-net
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/sse\")' || exit 1"]
+      test: [ "CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/sse\")' || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -104,6 +106,7 @@ services:
   yfinance-mcp:
     build:
       context: ./yfinance_mcp
+      network: host
     container_name: yfinance-mcp
     restart: unless-stopped
     env_file:
@@ -116,7 +119,7 @@ services:
     networks:
       - investment-net
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/sse\")' || exit 1"]
+      test: [ "CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/sse\")' || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -126,6 +129,7 @@ services:
   web-summarizer-mcp:
     build:
       context: ./web_summarizer_mcp
+      network: host
     container_name: web-summarizer-mcp
     restart: unless-stopped
     env_file:
@@ -138,7 +142,30 @@ services:
     networks:
       - investment-net
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/sse\")' || exit 1"]
+      test: [ "CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/sse\")' || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Technical Analyst MCP Server
+  technical-analyst-mcp:
+    build:
+      context: ./technical_analyst
+      network: host
+    container_name: technical-analyst-mcp
+    restart: unless-stopped
+    env_file:
+      - ./technical_analyst/.env
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+    ports:
+      - "8104:8000"
+    networks:
+      - investment-net
+    healthcheck:
+      test: [ "CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/sse\")' || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -147,6 +174,7 @@ services:
 volumes:
   damodaran_pg_data:
   fundamentus_pg_data:
+
 
 networks:
   investment-net:

@@ -7,6 +7,13 @@ from typing import Optional
 
 from mcp import ClientSession
 from mcp.client.sse import sse_client
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +21,7 @@ logger = logging.getLogger(__name__)
 class WebSummarizerClient:
     """Client for calling web_summarizer_mcp via SSE."""
 
-    def __init__(self, url: str, timeout: int = 60):
+    def __init__(self, url: str, timeout: int = 300):
         """Initialize client.
 
         Args:
@@ -55,7 +62,7 @@ class WebSummarizerClient:
         try:
             logger.info(
                 f"Connecting to web_summarizer_mcp at {self.url} "
-                f"to summarize {len(urls)} URLs"
+                f"to summarize {len(urls)} URLs (timeout={self.timeout}s)"
             )
 
             # Use asyncio.wait_for to enforce overall timeout
@@ -82,6 +89,12 @@ class WebSummarizerClient:
                 "error_code": "WEB_SUMMARIZER_ERROR",
             }
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+        retry=retry_if_exception_type((ConnectionError, OSError, asyncio.TimeoutError)),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+    )
     async def _call_summarize_web(
         self,
         urls: list[str],

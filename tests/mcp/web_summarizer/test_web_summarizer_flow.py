@@ -7,19 +7,18 @@ Simulates the complete agent flow:
 2. Extract URLs from news
 3. Summarize using web_summarizer_mcp
 4. Display results
-
-Usage:
-    python3 mcp/test_web_summarizer_flow.py PETR4.SA
 """
 
 import asyncio
 import json
-import sys
+import pytest
+import aiohttp
 from typing import Any, Dict, List
 
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
+# --- Helper Functions ---
 
 class MCPClient:
     """Convenient wrapper for MCP server connections."""
@@ -188,127 +187,77 @@ async def summarize_urls(urls: List[str], titles: List[str], max_urls: int = 10)
 
 def display_results(news_data: List[Dict[str, Any]], summary_data: Dict[str, Any]) -> None:
     """Display formatted results."""
-    print(f"\n{'='*70}")
-    print(f"Results Summary")
-    print(f"{'='*70}")
-
+    # (Simplified for brevity in logs, but kept functional)
     if not summary_data:
         print("❌ No summary data available")
         return
 
     metadata = summary_data.get("metadata", {})
     summaries = summary_data.get("summaries", [])
-    errors = summary_data.get("errors", [])
-
+    
     print(f"\n📊 Processing Statistics:")
     print(f"  Total news articles: {len(news_data)}")
-    print(f"  URLs requested: {metadata.get('total_requested', 0)}")
     print(f"  URLs processed: {metadata.get('total_processed', 0)}")
     print(f"  ✓ Successful: {metadata.get('total_succeeded', 0)}")
-    print(f"  ⚠️  Partial: {metadata.get('total_partial', 0)}")
-    print(f"  ❌ Failed: {metadata.get('total_failed', 0)}")
-    print(f"  Total tokens used: {metadata.get('total_tokens_used', 0):,}")
-    print(f"  Total time: {metadata.get('total_processing_time_seconds', 0):.1f}s")
+    
+    # Check for failures
+    failed = metadata.get('total_failed', 0)
+    if failed > 0:
+         print(f"  ❌ Failed: {failed}")
 
-    # Rate limit stats
-    rate_stats = summary_data.get("rate_limit_stats", {})
-    if rate_stats:
-        print(f"\n📈 Rate Limit Status:")
-        print(f"  Tokens: {rate_stats.get('tokens_used', 0):,} / {rate_stats.get('tokens_limit', 0):,} ({rate_stats.get('tokens_percent', 0):.1f}%)")
-        print(f"  Requests: {rate_stats.get('requests_used', 0)} / {rate_stats.get('requests_limit', 0)} ({rate_stats.get('requests_percent', 0):.1f}%)")
+# --- Automated Test ---
 
-    # Display successful summaries
-    successful = [s for s in summaries if s.get("status") == "success"]
-    if successful:
-        print(f"\n✅ Successful Summaries ({len(successful)}):")
-        print(f"{'-'*70}")
-        for i, summary in enumerate(successful, 1):
-            print(f"\n{i}. {summary.get('title', 'No title') or summary.get('url', 'Unknown')[:60]}")
-            print(f"   URL: {summary.get('url', '')[:80]}...")
-            print(f"   Tokens: {summary.get('tokens_used', 0):,} | Time: {summary.get('processing_time_seconds', 0):.1f}s")
-            print(f"   Summary: {summary.get('summary', '')[:200]}...")
-            print()
+async def check_server_available(url):
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=2) as response:
+                return response.status in (200, 404, 405)
+    except:
+        return False
 
-    # Display partial summaries
-    partial = [s for s in summaries if s.get("status") == "partial"]
-    if partial:
-        print(f"\n⚠️  Partial Summaries ({len(partial)}):")
-        print(f"{'-'*70}")
-        for i, summary in enumerate(partial, 1):
-            print(f"\n{i}. {summary.get('title', 'No title') or summary.get('url', 'Unknown')[:60]}")
-            print(f"   URL: {summary.get('url', '')[:80]}...")
-            print(f"   Error: {summary.get('error', 'Unknown error')}")
-            print(f"   Note: {summary.get('note', '')}")
-            print()
-
-    # Display errors
-    if errors:
-        print(f"\n❌ Errors ({len(errors)}):")
-        print(f"{'-'*70}")
-        for i, error in enumerate(errors, 1):
-            print(f"{i}. {error.get('url', 'Unknown')[:80]}")
-            print(f"   Error: {error.get('error', 'Unknown')}")
-            print(f"   Code: {error.get('error_code', 'UNKNOWN')}")
-            print()
-
-
-async def test_complete_flow(ticker: str, max_news: int = 10) -> None:
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ticker, max_news", [
+    ("PETR4.SA", 3),
+    ("AAPL", 3)
+])
+async def test_complete_flow(ticker: str, max_news: int):
     """Test the complete flow: get news -> extract URLs -> summarize."""
+    
+    # Skip if servers are offline
+    if not await check_server_available("http://localhost:8102/sse"):
+        pytest.skip("yfinance_mcp server is offline")
+    if not await check_server_available("http://localhost:8103/sse"):
+        pytest.skip("web_summarizer_mcp server is offline")
+
     print(f"\n{'#'*70}")
     print(f"# Testing Web Summarizer Flow for {ticker}")
     print(f"{'#'*70}")
 
-    try:
-        # Step 1: Get news from yfinance
-        news_data = await get_ticker_news(ticker)
+    # Step 1: Get news from yfinance
+    news_data = await get_ticker_news(ticker)
+    assert news_data is not None
+    if not news_data:
+        pytest.skip(f"No news data available for {ticker}, skipping test.")
 
-        if not news_data:
-            print(f"\n❌ No news data available. Cannot proceed.")
-            return
+    # Step 2: Extract URLs and titles
+    urls, titles = extract_urls_and_titles(news_data)
+    if not urls:
+        pytest.skip(f"No valid URLs found for {ticker}, skipping test.")
 
-        # Step 2: Extract URLs and titles
-        urls, titles = extract_urls_and_titles(news_data)
+    # Step 3: Summarize URLs
+    summary_data = await summarize_urls(urls, titles, max_urls=max_news)
+    
+    # Assertions
+    assert summary_data is not None, "Summary data should not be None"
+    assert "error" not in summary_data, f"Summarization returned error: {summary_data.get('error')}"
+    assert "summaries" in summary_data, "Response should contain summaries list"
+    
+    metadata = summary_data.get("metadata", {})
+    assert metadata.get("total_processed", 0) > 0, "Should have processed at least one URL"
 
-        if not urls:
-            print(f"\n❌ No valid URLs found. Cannot proceed.")
-            return
+    # Step 4: Display results (for logs)
+    display_results(news_data, summary_data)
 
-        # Step 3: Summarize URLs
-        summary_data = await summarize_urls(urls, titles, max_urls=max_news)
-
-        # Step 4: Display results
-        display_results(news_data, summary_data)
-
-        print(f"\n{'#'*70}")
-        print(f"# Test Complete")
-        print(f"{'#'*70}\n")
-
-    except KeyboardInterrupt:
-        print(f"\n\n⚠️  Test interrupted by user")
-    except Exception as e:
-        print(f"\n❌ Unexpected error: {e}")
-        import traceback
-        traceback.print_exc()
-
-
-async def main():
-    """Main entry point."""
-    if len(sys.argv) < 2:
-        print("Usage: python3 test_web_summarizer_flow.py <TICKER> [MAX_NEWS]")
-        print("Example: python3 test_web_summarizer_flow.py PETR4.SA 5")
-        sys.exit(1)
-
-    ticker = sys.argv[1].upper()
-    max_news = int(sys.argv[2]) if len(sys.argv) > 2 else 10
-
-    print("\n⚠️  Make sure both MCP servers are running:")
-    print("   - yfinance_mcp: http://localhost:8102/sse")
-    print("   - web_summarizer_mcp: http://localhost:8103/sse")
-    print("\n   Start with: python3 mcp/manage_mcp_servers.py start --unified")
-    print()
-
-    await test_complete_flow(ticker, max_news=max_news)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+    print(f"\n{'#'*70}")
+    print(f"# Test Complete")
+    print(f"{'#'*70}\n")

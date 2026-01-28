@@ -200,6 +200,9 @@ class MCPServerManager:
         endpoints = {
             "damodaran_valuation": "http://localhost:8100/sse",
             "fundamentus_b3": "http://localhost:8101/sse",
+            "yfinance_mcp": "http://localhost:8102/sse",
+            "web_summarizer_mcp": "http://localhost:8103/sse",
+            "technical_analyst": "http://localhost:8104/sse",
         }
 
         for srv in servers_to_check:
