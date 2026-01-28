@@ -25,9 +25,9 @@ async def get_crawler() -> AsyncWebCrawler:
         if _crawler is None:
             browser_config = BrowserConfig(
                 headless=True,
-                verbose=True, # Enable verbose logging to debug issues
+                verbose=True,  # Enable verbose logging to debug issues
                 # Add container-friendly arguments to prevent crashes
-                args=[
+                extra_args=[
                     "--no-sandbox",
                     "--disable-dev-shm-usage",
                     "--disable-gpu",
@@ -73,9 +73,9 @@ async def crawl_url(url: str, timeout: int = 30, max_retries: int = 2) -> dict:
         word_count_threshold=10,  # Minimum word count to consider valid content
         exclude_external_links=True,  # Don't follow external links
         wait_for_images=False,  # Don't wait for images to load (faster)
-        page_timeout=timeout * 1000, # Page timeout in ms
-        wait_until="domcontentloaded", # Faster than networkidle
-        remove_overlay_elements=True, # Remove popups/modals
+        page_timeout=timeout * 1000,  # Page timeout in ms
+        wait_until="domcontentloaded",  # Faster than networkidle
+        remove_overlay_elements=True,  # Remove popups/modals
     )
 
     last_error = None
@@ -107,7 +107,9 @@ async def crawl_url(url: str, timeout: int = 30, max_retries: int = 2) -> dict:
                         f"Content too short for {url}: {len(content)} characters"
                     )
                     # Content too short might mean dynamic loading failed or blocked
-                    last_error = f"Content too short or empty: {len(content)} characters"
+                    last_error = (
+                        f"Content too short or empty: {len(content)} characters"
+                    )
             else:
                 error_msg = result.error_message or "Unknown crawl error"
                 logger.warning(f"Crawl failed for {url}: {error_msg}")
@@ -122,10 +124,10 @@ async def crawl_url(url: str, timeout: int = 30, max_retries: int = 2) -> dict:
             error_msg = f"Error crawling {url}: {str(e)}"
             logger.error(error_msg, exc_info=True)
             last_error = error_msg
-        
+
         # Retry logic with exponential backoff
         if attempt < max_retries:
-            wait_time = 2 ** attempt  # 1, 2, 4, 8...
+            wait_time = 2**attempt  # 1, 2, 4, 8...
             logger.info(f"Retrying {url} in {wait_time}s...")
             await asyncio.sleep(wait_time)
 
