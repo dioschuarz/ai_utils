@@ -2,21 +2,28 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
 
-# Install git for pandas_ta
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
-
+# Enable bytecode compilation
 ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
 ENV UV_HTTP_TIMEOUT=600
 ENV UV_CONCURRENT_DOWNLOADS=4
 
-# Copy project files
-COPY pyproject.toml uv.lock README.md /app/
-COPY src /app/src
+# Install git for pandas_ta
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies using pip install --system (uses pre-built wheels from PyPI)
-# This avoids local compilation of numba/llvmlite
+# Install the project's dependencies using the lockfile and settings
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system -r pyproject.toml
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
+
+# Then, add the rest of the project source code and install it
+ADD . /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+
+# Place executables in the environment at the front of the path
+ENV PATH="/app/.venv/bin:$PATH"
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app/src

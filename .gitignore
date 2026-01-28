@@ -31,3 +31,6 @@ wheels/
 .env.development.local
 .env.test.local
 .env.production.local
+
+.pytest_cache*
+.vscode*
