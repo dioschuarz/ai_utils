@@ -77,9 +77,51 @@ def _maybe_float(value: Any) -> float | None:
     return float(value)
 
 
-@mcp.tool()
+def _get_available_sectors() -> list[str]:
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT DISTINCT sector_name FROM sector_betas ORDER BY sector_name")
+                rows = cur.fetchall()
+                if rows:
+                    return [r["sector_name"] for r in rows]
+    except Exception:
+        pass
+    return []
+
+
+def _get_available_countries() -> list[str]:
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT DISTINCT country FROM country_risk ORDER BY country")
+                rows = cur.fetchall()
+                if rows:
+                    return [r["country"] for r in rows]
+    except Exception:
+        pass
+    return []
+
+
+AVAILABLE_SECTORS = _get_available_sectors()
+AVAILABLE_COUNTRIES = _get_available_countries()
+
+if not AVAILABLE_SECTORS or not AVAILABLE_COUNTRIES:
+    print("Database seems empty or missing data. Running auto-ingestion...")
+    try:
+        from ingestion import ingest
+        ingest()
+        AVAILABLE_SECTORS = _get_available_sectors()
+        AVAILABLE_COUNTRIES = _get_available_countries()
+        print("Auto-ingestion completed successfully.")
+    except Exception as e:
+        print(f"Failed to auto-ingest data: {e}")
+
+sectors_doc = "\n\nAvailable sectors:\n" + ", ".join(AVAILABLE_SECTORS) if AVAILABLE_SECTORS else "\n\nAvailable sectors: (Database empty or connection error)"
+countries_doc = "\n\nAvailable countries:\n" + ", ".join(AVAILABLE_COUNTRIES) if AVAILABLE_COUNTRIES else "\n\nAvailable countries: (Database empty or connection error)"
+
+
 def get_sector_metrics(sector_name: str) -> Dict[str, Any]:
-    """Return sector unlevered beta, tax rate, and average D/E ratio."""
     row = _similarity_lookup("sector_betas", "sector_name", sector_name)
     if not row:
         return {"error": f"Sector not found: {sector_name}"}
@@ -90,10 +132,11 @@ def get_sector_metrics(sector_name: str) -> Dict[str, Any]:
         "average_de_ratio": float(row["avg_de_ratio"]),
     }
 
+get_sector_metrics.__doc__ = f"Return sector unlevered beta, tax rate, and average D/E ratio.{sectors_doc}"
+get_sector_metrics = mcp.tool()(get_sector_metrics)
 
-@mcp.tool()
+
 def get_country_risk_premium(country: str) -> Dict[str, Any]:
-    """Return equity risk premium and country risk premium for a country."""
     row = _similarity_lookup("country_risk", "country", country)
     if not row:
         return {"error": f"Country not found: {country}"}
@@ -103,10 +146,11 @@ def get_country_risk_premium(country: str) -> Dict[str, Any]:
         "country_risk_premium": float(row["country_risk_premium"]),
     }
 
+get_country_risk_premium.__doc__ = f"Return equity risk premium and country risk premium for a country.{countries_doc}"
+get_country_risk_premium = mcp.tool()(get_country_risk_premium)
 
-@mcp.tool()
+
 def calculate_levered_beta(sector_name: str, current_de_ratio: float) -> Dict[str, Any]:
-    """Apply Hamada formula using sector unlevered beta and tax rate."""
     row = _similarity_lookup("sector_betas", "sector_name", sector_name)
     if not row:
         return {"error": f"Sector not found: {sector_name}"}
@@ -120,6 +164,9 @@ def calculate_levered_beta(sector_name: str, current_de_ratio: float) -> Dict[st
         "current_de_ratio": current_de_ratio,
         "levered_beta": beta_l,
     }
+
+calculate_levered_beta.__doc__ = f"Apply Hamada formula using sector unlevered beta and tax rate.{sectors_doc}"
+calculate_levered_beta = mcp.tool()(calculate_levered_beta)
 
 
 @mcp.tool()
@@ -146,9 +193,7 @@ def get_synthetic_spread(interest_coverage_ratio: float) -> Dict[str, Any]:
     }
 
 
-@mcp.tool()
 def get_sector_benchmarks(sector_name: str) -> Dict[str, Any]:
-    """Return benchmark metrics for a sector (means only)."""
     row = _similarity_lookup("sector_benchmarks", "sector_name", sector_name)
     if not row:
         return {"error": f"Sector not found: {sector_name}"}
@@ -162,6 +207,9 @@ def get_sector_benchmarks(sector_name: str) -> Dict[str, Any]:
         "sales_to_capital_mean": _maybe_float(row["sales_to_capital_mean"]),
         "reinvestment_rate_mean": _maybe_float(row["reinvestment_rate_mean"]),
     }
+
+get_sector_benchmarks.__doc__ = f"Return benchmark metrics for a sector (means only).{sectors_doc}"
+get_sector_benchmarks = mcp.tool()(get_sector_benchmarks)
 
 
 def main() -> None:

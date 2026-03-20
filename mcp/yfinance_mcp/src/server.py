@@ -47,7 +47,9 @@ mcp = FastMCP(
     ),
 )
 async def get_ticker_info(
-    symbol: Annotated[str, Field(description="Stock ticker symbol (e.g., 'AAPL', 'GOOGL', 'MSFT')")],
+    symbol: Annotated[
+        str, Field(description="Stock ticker symbol (e.g., 'AAPL', 'GOOGL', 'MSFT')")
+    ],
 ) -> str:
     """Retrieve comprehensive stock data including company information, financials, trading metrics and governance.
 
@@ -95,7 +97,9 @@ async def get_ticker_info(
         if not isinstance(value, int | float):
             continue
 
-        if key.lower().endswith(("date", "start", "end", "timestamp", "time", "quarter")):
+        if key.lower().endswith(
+            ("date", "start", "end", "timestamp", "time", "quarter")
+        ):
             try:
                 info[key] = datetime.fromtimestamp(value).strftime("%Y-%m-%d %H:%M:%S")
             except Exception as exc:
@@ -114,7 +118,9 @@ async def get_ticker_info(
     ),
 )
 async def get_ticker_news(
-    symbol: Annotated[str, Field(description="Stock ticker symbol (e.g., 'AAPL', 'GOOGL', 'MSFT')")],
+    symbol: Annotated[
+        str, Field(description="Stock ticker symbol (e.g., 'AAPL', 'GOOGL', 'MSFT')")
+    ],
 ) -> str:
     """Fetch recent news articles and press releases for a specific stock.
 
@@ -168,7 +174,12 @@ async def get_ticker_news(
     ),
 )
 async def get_ticker_news_summarized(
-    symbol: Annotated[str, Field(description="Stock ticker symbol (e.g., 'AAPL', 'GOOGL', 'MSFT', 'PETR4.SA')")],
+    symbol: Annotated[
+        str,
+        Field(
+            description="Stock ticker symbol (e.g., 'AAPL', 'GOOGL', 'MSFT', 'PETR4.SA')"
+        ),
+    ],
     max_news: Annotated[
         int,
         Field(
@@ -367,9 +378,7 @@ async def get_ticker_news_summarized(
                 "summarized": len(combined_summaries),
                 "failed": len(failed_summaries),
                 "total_tokens_used": metadata.get("total_tokens_used", 0),
-                "total_processing_time_seconds": round(
-                    time.time() - start_time, 2
-                ),
+                "total_processing_time_seconds": round(time.time() - start_time, 2),
             },
             "fallback_used": False,
         }
@@ -381,7 +390,10 @@ async def get_ticker_news_summarized(
         return dump_json(response)
 
     except Exception as exc:
-        logger.error(f"Unexpected error in get_ticker_news_summarized for {symbol}: {exc}", exc_info=True)
+        logger.error(
+            f"Unexpected error in get_ticker_news_summarized for {symbol}: {exc}",
+            exc_info=True,
+        )
         return create_error_response(
             f"Failed to get summarized news for '{symbol}': {str(exc)}",
             error_code="UNKNOWN_ERROR",
@@ -399,7 +411,10 @@ async def get_ticker_news_summarized(
     ),
 )
 async def search(
-    query: Annotated[str, Field(description="Search query - company name, ticker symbol, or keywords")],
+    query: Annotated[
+        str,
+        Field(description="Search query - company name, ticker symbol, or keywords"),
+    ],
     search_type: Annotated[
         SearchType,
         Field(
@@ -459,12 +474,17 @@ async def search(
             return create_error_response(
                 f"Invalid search_type '{search_type}'. Valid options: 'all', 'quotes', 'news'.",
                 error_code="INVALID_PARAMS",
-                details={"search_type": search_type, "valid_options": ["all", "quotes", "news"]},
+                details={
+                    "search_type": search_type,
+                    "valid_options": ["all", "quotes", "news"],
+                },
             )
 
 
 async def get_top_etfs(
-    sector: Annotated[Sector, Field(description="Market sector (e.g., 'Technology', 'Healthcare')")],
+    sector: Annotated[
+        Sector, Field(description="Market sector (e.g., 'Technology', 'Healthcare')")
+    ],
     top_n: Annotated[int, Field(description="Number of top ETFs to retrieve", ge=1)],
 ) -> str:
     """Get the most popular ETFs for a specific sector.
@@ -496,13 +516,19 @@ async def get_top_etfs(
             details={"sector": sector},
         )
 
-    result = [{"symbol": symbol, "name": name} for symbol, name in list(etfs.items())[:top_n]]
+    result = [
+        {"symbol": symbol, "name": name} for symbol, name in list(etfs.items())[:top_n]
+    ]
     return dump_json(result)
 
 
 async def get_top_mutual_funds(
-    sector: Annotated[Sector, Field(description="Market sector (e.g., 'Technology', 'Healthcare')")],
-    top_n: Annotated[int, Field(description="Number of top mutual funds to retrieve", ge=1)],
+    sector: Annotated[
+        Sector, Field(description="Market sector (e.g., 'Technology', 'Healthcare')")
+    ],
+    top_n: Annotated[
+        int, Field(description="Number of top mutual funds to retrieve", ge=1)
+    ],
 ) -> str:
     """Get the most popular mutual funds for a specific sector.
 
@@ -534,13 +560,19 @@ async def get_top_mutual_funds(
             details={"sector": sector},
         )
 
-    result = [{"symbol": symbol, "name": name} for symbol, name in list(funds.items())[:top_n]]
+    result = [
+        {"symbol": symbol, "name": name} for symbol, name in list(funds.items())[:top_n]
+    ]
     return dump_json(result)
 
 
 async def get_top_companies(
-    sector: Annotated[Sector, Field(description="Market sector (e.g., 'Technology', 'Healthcare')")],
-    top_n: Annotated[int, Field(description="Number of top companies to retrieve", ge=1)],
+    sector: Annotated[
+        Sector, Field(description="Market sector (e.g., 'Technology', 'Healthcare')")
+    ],
+    top_n: Annotated[
+        int, Field(description="Number of top companies to retrieve", ge=1)
+    ],
 ) -> str:
     """Get top companies in a sector by market capitalization.
 
@@ -574,8 +606,12 @@ async def get_top_companies(
 
 
 async def get_top_growth_companies(
-    sector: Annotated[Sector, Field(description="Market sector (e.g., 'Technology', 'Healthcare')")],
-    top_n: Annotated[int, Field(description="Number of top growth companies per industry", ge=1)],
+    sector: Annotated[
+        Sector, Field(description="Market sector (e.g., 'Technology', 'Healthcare')")
+    ],
+    top_n: Annotated[
+        int, Field(description="Number of top growth companies per industry", ge=1)
+    ],
 ) -> str:
     """Get fastest-growing companies organized by industry within a sector.
 
@@ -590,7 +626,10 @@ async def get_top_growth_companies(
         return create_error_response(
             f"Unknown sector '{sector}'. Valid sectors: {', '.join(SECTOR_INDUSTY_MAPPING.keys())}",
             error_code="INVALID_PARAMS",
-            details={"sector": sector, "valid_sectors": list(SECTOR_INDUSTY_MAPPING.keys())},
+            details={
+                "sector": sector,
+                "valid_sectors": list(SECTOR_INDUSTY_MAPPING.keys()),
+            },
         )
 
     results = []
@@ -623,8 +662,12 @@ async def get_top_growth_companies(
 
 
 async def get_top_performing_companies(
-    sector: Annotated[Sector, Field(description="Market sector (e.g., 'Technology', 'Healthcare')")],
-    top_n: Annotated[int, Field(description="Number of top performing companies per industry", ge=1)],
+    sector: Annotated[
+        Sector, Field(description="Market sector (e.g., 'Technology', 'Healthcare')")
+    ],
+    top_n: Annotated[
+        int, Field(description="Number of top performing companies per industry", ge=1)
+    ],
 ) -> str:
     """Get best-performing companies by stock price performance, organized by industry.
 
@@ -639,7 +682,10 @@ async def get_top_performing_companies(
         return create_error_response(
             f"Unknown sector '{sector}'. Valid sectors: {', '.join(SECTOR_INDUSTY_MAPPING.keys())}",
             error_code="INVALID_PARAMS",
-            details={"sector": sector, "valid_sectors": list(SECTOR_INDUSTY_MAPPING.keys())},
+            details={
+                "sector": sector,
+                "valid_sectors": list(SECTOR_INDUSTY_MAPPING.keys()),
+            },
         )
 
     results = []
@@ -682,7 +728,10 @@ async def get_top_performing_companies(
 )
 async def get_top(
     sector: Annotated[
-        Sector, Field(description="Market sector (e.g., 'Technology', 'Healthcare', 'Financial Services')")
+        Sector,
+        Field(
+            description="Market sector (e.g., 'Technology', 'Healthcare', 'Financial Services')"
+        ),
     ],
     top_type: Annotated[
         TopType,
@@ -756,7 +805,9 @@ async def get_top(
     ),
 )
 async def get_price_history(
-    symbol: Annotated[str, Field(description="Stock ticker symbol (e.g., 'AAPL', 'GOOGL', 'MSFT')")],
+    symbol: Annotated[
+        str, Field(description="Stock ticker symbol (e.g., 'AAPL', 'GOOGL', 'MSFT')")
+    ],
     period: Annotated[
         Period,
         Field(
@@ -855,6 +906,90 @@ async def get_price_history(
         return df.to_markdown()
 
     return generate_chart(symbol=symbol, df=df, chart_type=chart_type)
+
+
+@mcp.tool(
+    name="yfinance_get_recommendations",
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
+)
+async def get_recommendations(
+    symbol: Annotated[
+        str,
+        Field(
+            description="Stock ticker symbol (e.g., 'AAPL', 'GOOGL', 'MSFT', 'PETR4.SA')"
+        ),
+    ],
+) -> str:
+    """Fetch analyst recommendations for a specific stock.
+
+    Returns JSON object with:
+    - symbol: Stock ticker symbol
+    - recommendations: Array of recent recommendations with:
+        - period: Date of recommendation (YYYY-MM-DD or None)
+        - firm: Analyst firm name
+        - toGrade: New grade (e.g., Buy, Hold, Sell)
+        - fromGrade: Previous grade
+        - action: Action taken (e.g., up, down, main, init)
+    - summary: Aggregated recommendation summary (mean, median, etc.) if available.
+
+    Use this to gauge institutional sentiment and professional analyst views.
+    """
+    try:
+        ticker = await asyncio.to_thread(yf.Ticker, symbol)
+
+        # Get recommendations (DataFrame)
+        recommendations_df = await asyncio.to_thread(lambda: ticker.recommendations)
+
+        # Get recommendations summary (DataFrame)
+        summary_df = await asyncio.to_thread(lambda: ticker.recommendations_summary)
+
+    except (ConnectionError, TimeoutError, OSError) as exc:
+        return create_error_response(
+            f"Network error while fetching recommendations for '{symbol}'. Check your internet connection and try again.",
+            error_code="NETWORK_ERROR",
+            details={"symbol": symbol, "exception": str(exc)},
+        )
+    except Exception as exc:
+        return create_error_response(
+            f"Failed to fetch recommendations for '{symbol}'. Verify the symbol is correct.",
+            error_code="API_ERROR",
+            details={"symbol": symbol, "exception": str(exc)},
+        )
+
+    result = {"symbol": symbol, "recommendations": [], "summary": None}
+
+    if recommendations_df is not None and not recommendations_df.empty:
+        # Reset index to ensure all columns including index are columns
+        df_reset = recommendations_df.reset_index()
+        result["recommendations"] = df_reset.to_dict(orient="records")
+
+    if summary_df is not None and not summary_df.empty:
+        df_summary_reset = summary_df.reset_index()
+        result["summary"] = df_summary_reset.to_dict(orient="records")
+
+    if not result["recommendations"] and not result["summary"]:
+        return create_error_response(
+            f"No analyst recommendations available for '{symbol}'.",
+            error_code="NO_DATA",
+            details={"symbol": symbol},
+        )
+
+    return dump_json(result)
+
+
+@mcp.prompt(name="analyze_stock_sentiment")
+def analyze_stock_sentiment(symbol: str = "RDOR3.SA") -> str:
+    """Create a market sentiment analysis prompt for a stock.
+
+    This prompt template helps analysts quick-start a sentiment review
+    combining news and recommendations.
+    """
+    return f"Please analyze the market sentiment for {symbol} based on recent news and analyst recommendations. Identify any divergence between the institutional view and the latest news cycle."
 
 
 def main() -> None:
