@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 import psycopg
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 from config import get_settings
 from db import get_conn
@@ -13,8 +13,6 @@ from db import get_conn
 _settings = get_settings()
 mcp = FastMCP(
     "damodaran-valuation",
-    host=_settings.mcp_host,
-    port=_settings.mcp_port,
 )
 
 
@@ -213,7 +211,7 @@ get_sector_benchmarks = mcp.tool()(get_sector_benchmarks)
 
 
 def main() -> None:
-    mcp.run(transport="sse")
+    mcp.run(transport="http", host=_settings.mcp_host, port=_settings.mcp_port)
 
 
 if __name__ == "__main__":

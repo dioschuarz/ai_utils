@@ -5,7 +5,7 @@ import logging
 import time
 from typing import Annotated, Optional
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
@@ -21,8 +21,6 @@ logger = logging.getLogger(__name__)
 _settings = get_settings()
 mcp = FastMCP(
     "web-summarizer-mcp",
-    host=_settings.mcp_host,
-    port=_settings.mcp_port,
 )
 
 # Initialize rate limiter and summarizer
@@ -84,10 +82,10 @@ async def summarize_web(
         ),
     ] = 30,
 ) -> str:
-    """Summarize web content from URLs using Crawl4AI and Gemini.
+    """Summarize web content from URLs using Crawl4AI and OpenRouter.
 
     This tool crawls each URL, extracts clean content, and generates a concise
-    summary using Google Gemini. It handles rate limiting automatically and
+    summary using OpenRouter. It handles rate limiting automatically and
     processes URLs in parallel for efficiency.
 
     Returns JSON with:
@@ -285,7 +283,7 @@ async def summarize_web(
 def main() -> None:
     """Run the MCP server."""
     logger.info(f"Starting Web Summarizer MCP on {_settings.mcp_host}:{_settings.mcp_port}")
-    mcp.run(transport="sse")
+    mcp.run(transport="http", host=_settings.mcp_host, port=_settings.mcp_port)
 
 
 if __name__ == "__main__":

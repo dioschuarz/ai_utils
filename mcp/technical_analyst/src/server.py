@@ -5,7 +5,7 @@ import logging
 import pandas as pd
 import pandas_ta as ta
 import yfinance as yf
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from typing import Dict, Any, Optional
 from .config import get_settings
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -25,8 +25,6 @@ settings = get_settings()
 # Initialize FastMCP Server
 mcp = FastMCP(
     "Alpha-Guardian-Technical-Analyst",
-    host=settings.mcp_host,
-    port=settings.mcp_port
 )
 
 
@@ -210,12 +208,4 @@ async def get_key_levels(ticker: str) -> str:
         return json.dumps({"error": f"Failed to get levels for {ticker}: {error_msg}"})
 
 if __name__ == "__main__":
-    try:
-        print(f"DEBUG: Starting uvicorn manually with host={settings.mcp_host} port={settings.mcp_port}")
-        import uvicorn
-        # Run the SSE app directly
-        uvicorn.run(mcp.sse_app, host=settings.mcp_host, port=settings.mcp_port)
-    except Exception as e:
-        print(f"CRITICAL ERROR: {e}")
-        import traceback
-        traceback.print_exc()
+    mcp.run(transport="http", host=settings.mcp_host, port=settings.mcp_port)

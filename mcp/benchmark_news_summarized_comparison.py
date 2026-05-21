@@ -18,44 +18,34 @@ import sys
 import time
 from typing import Any, Dict, List
 
-from mcp import ClientSession
-from mcp.client.sse import sse_client
+from fastmcp.client import Client
 
 
 class MCPClient:
     """Convenient wrapper for MCP server connections."""
 
     def __init__(self, url: str):
-        self.url = url
-        self._read = None
-        self._write = None
-        self._sse_context = None
-        self._session = None
+        # Strip /sse for backward compatibility
+        self.url = url.replace("/sse", "")
+        self._client = None
 
     async def __aenter__(self):
         """Connect to the MCP server."""
-        self._sse_context = sse_client(url=self.url)
-        self._read, self._write = await self._sse_context.__aenter__()
-
-        session_ctx = ClientSession(self._read, self._write)
-        self._session = await session_ctx.__aenter__()
-        await self._session.initialize()
+        self._client = Client(self.url, name="benchmark-client")
+        await self._client.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Disconnect from the MCP server."""
-        if self._session:
-            await self._session.__aexit__(exc_type, exc_val, exc_tb)
-        if self._sse_context:
-            await self._sse_context.__aexit__(exc_type, exc_val, exc_tb)
-        self._session = None
-        self._read = None
-        self._write = None
-        self._sse_context = None
+        if self._client:
+            await self._client.__aexit__(exc_type, exc_val, exc_tb)
+        self._client = None
 
     async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> str:
         """Call a tool on the MCP server."""
-        result = await self._session.call_tool(tool_name, arguments=arguments)
+        result = await self._client.call_tool(tool_name, arguments=arguments)
+        # FastMCP v3 call_tool returns a CallToolResult object.
+        # Extract the text content from the first block.
         if result.content and len(result.content) > 0:
             return result.content[0].text
         return ""
@@ -143,7 +133,7 @@ async def test_current_flow(ticker: str, max_news: int, agent_thinking_time: flo
 
         # Step 5: Call summarize_web
         print(f"[Step 5] Calling summarize_web with {min(len(urls), max_news)} URLs...")
-        async with MCPClient("http://localhost:8103/sse") as client:
+        async with MCPClient("http://localhost:8103/mcp") as client:
             metrics["mcp_calls"] += 1
             metrics["network_round_trips"] += 1
             summary_result = await client.call_tool(

@@ -198,11 +198,11 @@ class MCPServerManager:
 
         # Server endpoints mapping
         endpoints = {
-            "damodaran_valuation": "http://localhost:8100/sse",
-            "fundamentus_b3": "http://localhost:8101/sse",
-            "yfinance_mcp": "http://localhost:8102/sse",
-            "web_summarizer_mcp": "http://localhost:8103/sse",
-            "technical_analyst": "http://localhost:8104/sse",
+            "damodaran_valuation": "http://localhost:8100/mcp",
+            "fundamentus_b3": "http://localhost:8101/mcp",
+            "yfinance_mcp": "http://localhost:8102/mcp",
+            "web_summarizer_mcp": "http://localhost:8103/mcp",
+            "technical_analyst": "http://localhost:8104/mcp",
         }
 
         for srv in servers_to_check:

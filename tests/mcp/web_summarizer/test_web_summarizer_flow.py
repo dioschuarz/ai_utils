@@ -15,8 +15,7 @@ import pytest
 import aiohttp
 from typing import Any, Dict, List
 
-from mcp import ClientSession
-from mcp.client.sse import sse_client
+from fastmcp.client import Client
 
 # --- Helper Functions ---
 
@@ -24,37 +23,29 @@ class MCPClient:
     """Convenient wrapper for MCP server connections."""
 
     def __init__(self, url: str):
+        # Strip /mcp and ensure /mcp
+        if not url.endswith("/mcp"):
+            url = url.replace("/mcp", "").rstrip("/") + "/mcp"
         self.url = url
-        self._read = None
-        self._write = None
-        self._sse_context = None
-        self._session = None
+        self._client = None
 
     async def __aenter__(self):
         """Connect to the MCP server."""
-        self._sse_context = sse_client(url=self.url)
-        self._read, self._write = await self._sse_context.__aenter__()
-
-        session_ctx = ClientSession(self._read, self._write)
-        self._session = await session_ctx.__aenter__()
-        await self._session.initialize()
+        self._client = Client(self.url, name="test-client")
+        await self._client.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Disconnect from the MCP server."""
-        if self._session:
-            await self._session.__aexit__(exc_type, exc_val, exc_tb)
-        if self._sse_context:
-            await self._sse_context.__aexit__(exc_type, exc_val, exc_tb)
-        self._session = None
-        self._read = None
-        self._write = None
-        self._sse_context = None
+        if self._client:
+            await self._client.__aexit__(exc_type, exc_val, exc_tb)
+        self._client = None
 
     async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> str:
         """Call a tool on the MCP server."""
-        result = await self._session.call_tool(tool_name, arguments=arguments)
-        # Extract text from MCP response
+        result = await self._client.call_tool(tool_name, arguments=arguments)
+        # FastMCP v3 call_tool returns a CallToolResult object.
+        # Extract the text content from the first block.
         if result.content and len(result.content) > 0:
             return result.content[0].text
         return ""
@@ -66,7 +57,7 @@ async def get_ticker_news(ticker: str) -> List[Dict[str, Any]]:
     print(f"Step 1: Getting news for {ticker} from yfinance_mcp")
     print(f"{'='*70}")
 
-    async with MCPClient("http://localhost:8102/sse") as client:
+    async with MCPClient("http://localhost:8102/mcp") as client:
         print(f"✓ Connected to yfinance_mcp")
         print(f"  Calling yfinance_get_ticker_news('{ticker}')...")
 
@@ -147,7 +138,7 @@ async def summarize_urls(urls: List[str], titles: List[str], max_urls: int = 10)
     urls_to_summarize = urls[:max_urls]
     titles_to_use = titles[:max_urls] if titles else None
 
-    async with MCPClient("http://localhost:8103/sse") as client:
+    async with MCPClient("http://localhost:8103/mcp") as client:
         print(f"✓ Connected to web_summarizer_mcp")
         print(f"  Calling summarize_web with {len(urls_to_summarize)} URLs...")
         print(f"  This may take 30-60 seconds...")
@@ -211,7 +202,7 @@ async def check_server_available(url):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, timeout=2) as response:
-                return response.status in (200, 404, 405)
+                return response.status in (200, 404, 405, 406)
     except:
         return False
 
@@ -223,12 +214,6 @@ async def check_server_available(url):
 async def test_complete_flow(ticker: str, max_news: int):
     """Test the complete flow: get news -> extract URLs -> summarize."""
     
-    # Skip if servers are offline
-    if not await check_server_available("http://localhost:8102/sse"):
-        pytest.skip("yfinance_mcp server is offline")
-    if not await check_server_available("http://localhost:8103/sse"):
-        pytest.skip("web_summarizer_mcp server is offline")
-
     print(f"\n{'#'*70}")
     print(f"# Testing Web Summarizer Flow for {ticker}")
     print(f"{'#'*70}")

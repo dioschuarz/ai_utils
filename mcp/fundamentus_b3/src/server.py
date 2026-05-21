@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 from cache import (
     clear_expired,
@@ -26,8 +26,6 @@ logger = logging.getLogger(__name__)
 _settings = get_settings()
 mcp = FastMCP(
     "fundamentus-b3",
-    host=_settings.mcp_host,
-    port=_settings.mcp_port,
 )
 
 
@@ -286,7 +284,7 @@ def main() -> None:
     if cleared > 0:
         logger.info(f"Cleared {cleared} expired cache entries on startup")
     
-    mcp.run(transport="sse")
+    mcp.run(transport="http", host=_settings.mcp_host, port=_settings.mcp_port)
 
 
 if __name__ == "__main__":

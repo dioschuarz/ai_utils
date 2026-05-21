@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Annotated
 
 import yfinance as yf
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from mcp.types import ImageContent
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -32,8 +32,6 @@ logger = logging.getLogger(__name__)
 _settings = get_settings()
 mcp = FastMCP(
     "yfinance-mcp",
-    host=_settings.mcp_host,
-    port=_settings.mcp_port,
 )
 
 
@@ -993,7 +991,7 @@ def analyze_stock_sentiment(symbol: str = "RDOR3.SA") -> str:
 
 
 def main() -> None:
-    mcp.run(transport="sse")
+    mcp.run(transport="http", host=_settings.mcp_host, port=_settings.mcp_port)
 
 
 if __name__ == "__main__":

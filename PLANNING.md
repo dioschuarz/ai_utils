@@ -7,6 +7,7 @@ The `yfinance_mcp` server calls `web_summarizer_mcp` to process URLs. The intera
 1.  **Eliminate Timeouts:** Increase tolerance for long-running operations (rate limiting waits, slow scraping).
 2.  **Add Resilience:** Implement exponential backoff retries for network glitches.
 3.  **Configurability:** Externalize timeout settings (Done).
+4.  **Voice-Mode Background Integration:** Run `uvx voice-mode` as a persistent background process.
 
 ## 🏗️ Architecture & Decisions (ADRs)
 
@@ -18,9 +19,21 @@ The `yfinance_mcp` server calls `web_summarizer_mcp` to process URLs. The intera
 *   **Decision:** Default timeout set to **300s (5 minutes)**.
 *   **Status:** Config updated in `mcp/yfinance_mcp/src/config.py`.
 
+### ADR-003: Voice-Mode Process Management
+*   **Decision:** Use a standalone systemd user service OR a background shell process (to be confirmed).
+*   **Rationale:** Consistency with existing `mcp-servers.service` pattern for long-running tasks.
+
 ## 📝 Implementation Plan
 
 ### Phase 1: `yfinance_mcp` Hardening
+... (existing items) ...
+
+### Phase 5: Voice-Mode Setup
+
+- [ ] **Discovery:** Check `voice-mode` documentation for required environment variables (e.g., `GEMINI_API_KEY`).
+- [ ] **Scripting:** Create `scripts/voice_mode_start.sh` to handle background execution with `nohup` and logging.
+- [ ] **Systemd (Optional):** Create `voice-mode.service` in `~/.config/systemd/user/` for persistence across reboots.
+- [ ] **Verification:** Use `ps aux | grep voice-mode` and `tail -f` on logs to confirm it's running correctly.
 
 - [x] **Config Update:** Default timeout increased to 300s in `config.py`.
 - [x] **Dependency Update:** Added `tenacity` to `mcp/yfinance_mcp/pyproject.toml`.
