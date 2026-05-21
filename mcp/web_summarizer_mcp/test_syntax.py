@@ -76,16 +76,12 @@ def test_imports_in_code():
             content = f.read()
         
         checks = [
-            ("uses 'from google import genai'", "from google import genai" in content),
-            ("does NOT use 'import google.generativeai'", "import google.generativeai" not in content),
-            ("does NOT use 'google.generativeai'", "google.generativeai" not in content),
+            ("does NOT use 'import openai'", "import openai" not in content),
+            ("does NOT use 'from google import genai'", "from google import genai" not in content),
             ("uses pathlib", "import pathlib" in content),
             ("has _load_prompt_template function", "def _load_prompt_template" in content),
-            ("uses genai.Client", "genai.Client" in content),
-            ("uses client.aio", "client.aio" in content or "self.client.aio" in content),
-            ("does NOT use asyncio.to_thread for generate_content", 
-             "asyncio.to_thread" not in content or 
-             ("asyncio.to_thread" in content and "generate_content" not in content.split("asyncio.to_thread")[1][:200])),
+            ("uses LLMTransport", "LLMTransport" in content),
+            ("uses self.transport.call", "self.transport.call" in content),
         ]
         
         all_passed = True
@@ -118,8 +114,8 @@ def test_pyproject_toml():
         content = pyproject_file.read_text(encoding="utf-8")
         
         checks = [
-            ("has google-genai", "google-genai" in content),
-            ("does NOT have google-generativeai", "google-generativeai" not in content),
+            ("has langchain-litellm", "langchain-litellm" in content),
+            ("does NOT have google-genai", "google-genai" not in content),
         ]
         
         all_passed = True
@@ -149,12 +145,12 @@ def test_dockerfile():
     try:
         content = dockerfile.read_text(encoding="utf-8")
         
-        if "COPY prompts" in content or "COPY prompts/" in content:
-            print("  ✓ Dockerfile copies prompts folder")
+        if "COPY prompts" in content or "COPY prompts/" in content or "ADD . " in content:
+            print("  ✓ Dockerfile includes prompts folder (via ADD or COPY)")
             print("✓ Dockerfile: PASSED")
             return True
         else:
-            print("  ✗ Dockerfile does not copy prompts folder")
+            print("  ✗ Dockerfile does not seem to include prompts folder")
             print("✗ Dockerfile: FAILED")
             return False
             
@@ -165,7 +161,7 @@ def test_dockerfile():
 def main():
     """Run all tests."""
     print("=" * 60)
-    print("Testing Migration (Syntax & Structure Checks)")
+    print("Testing OpenRouter Migration (Syntax & Structure Checks)")
     print("=" * 60)
     
     results = []

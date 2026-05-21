@@ -8,14 +8,14 @@ import pathlib
 src_path = pathlib.Path(__file__).parent / "src"
 sys.path.insert(0, str(src_path.parent))
 
-def test_google_genai_import():
-    """Test google-genai import."""
-    print("Testing google-genai import...")
+def test_openai_import():
+    """Test openai import."""
+    print("Testing openai import...")
     try:
-        from google import genai
-        assert hasattr(genai, "Client"), "genai should have Client class"
-        print("  ✓ google-genai imported successfully")
-        print(f"  ✓ Client class exists: {hasattr(genai, 'Client')}")
+        import openai
+        assert hasattr(openai, "AsyncOpenAI"), "openai should have AsyncOpenAI class"
+        print("  ✓ openai imported successfully")
+        print(f"  ✓ AsyncOpenAI class exists: {hasattr(openai, 'AsyncOpenAI')}")
         return True
     except Exception as e:
         print(f"  ✗ Failed: {e}")
@@ -73,15 +73,13 @@ def test_summarizer_structure():
         init_source = inspect.getsource(Summarizer.__init__)
         summarize_source = inspect.getsource(Summarizer.summarize_article)
         
-        assert "genai.Client" in init_source, "Should use genai.Client"
+        assert "openai.AsyncOpenAI" in init_source, "Should use openai.AsyncOpenAI"
         assert "self.client" in init_source, "Should use self.client"
-        assert "client.aio" in summarize_source or "self.client.aio" in summarize_source, "Should use client.aio"
-        assert "asyncio.to_thread" not in summarize_source or "generate_content" not in summarize_source.split("asyncio.to_thread")[1][:300], "Should NOT use asyncio.to_thread for generate_content"
+        assert "client.chat.completions.create" in summarize_source or "self.client.chat.completions.create" in summarize_source, "Should use chat.completions.create"
         
         print("  ✓ All required methods present")
-        print("  ✓ Uses genai.Client")
-        print("  ✓ Uses client.aio for async")
-        print("  ✓ No deprecated asyncio.to_thread for generate_content")
+        print("  ✓ Uses openai.AsyncOpenAI")
+        print("  ✓ Uses client.chat.completions.create for async")
         return True
     except Exception as e:
         print(f"  ✗ Failed: {e}")
@@ -92,11 +90,11 @@ def test_summarizer_structure():
 def main():
     """Run all integration tests."""
     print("=" * 60)
-    print("Integration Tests - Migration Validation")
+    print("Integration Tests - OpenRouter Migration Validation")
     print("=" * 60)
     
     results = []
-    results.append(("google-genai import", test_google_genai_import()))
+    results.append(("openai import", test_openai_import()))
     results.append(("Prompt loading", test_prompt_loading()))
     results.append(("Summarizer structure", test_summarizer_structure()))
     

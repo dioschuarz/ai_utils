@@ -21,6 +21,9 @@ dependencies = [
     "twisted>=25.5.0",
     "service-identity>=24.2.0",
     "llvmlite>=0.46.0",
+    "langchain-community>=0.3.27",
+    "langchain-openai>=0.3.35",
+    "langchain-nvidia-ai-endpoints>=0.3.19",
 ]
 
 [build-system]

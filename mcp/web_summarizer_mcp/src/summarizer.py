@@ -1,14 +1,13 @@
-"""Gemini-based summarization for web content."""
+"""OpenRouter-based summarization for web content."""
 
 import logging
 import pathlib
 from typing import Optional
 
-from google import genai
-
 from .config import Settings
 from .rate_limiter import TokenRateLimiter
 from .utils import estimate_tokens
+from .llm_transport import LLMTransport
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +32,7 @@ SUMMARIZATION_PROMPT = _load_prompt_template()
 
 
 class Summarizer:
-    """Handles summarization using Google Gemini API."""
+    """Handles summarization using LLMTransport."""
 
     def __init__(self, settings: Settings, rate_limiter: TokenRateLimiter):
         """Initialize summarizer.
@@ -45,22 +44,24 @@ class Summarizer:
         self.settings = settings
         self.rate_limiter = rate_limiter
 
-        # Initialize Gemini API client
-        self.client = genai.Client(api_key=settings.gemini_api_key)
-        self.model_name = settings.gemini_model
+        # Global Request Limiter to respect maximum allowed rpm bounds securely
+        try:
+            from aiolimiter import AsyncLimiter
+            self.request_limiter = AsyncLimiter(max_rate=max(1, settings.max_requests_per_minute), time_period=60)
+        except ImportError:
+            self.request_limiter = None
 
-    def close(self) -> None:
-        """Close the Gemini API client and release resources."""
-        if hasattr(self, "client") and self.client:
-            self.client.close()
+        # Initialize LLM Transport
+        self.transport = LLMTransport()
+        self.provider = "cerebras"
+
+    async def close(self) -> None:
+        """Close the API client and release resources."""
+        pass
 
     def __del__(self) -> None:
         """Cleanup client on object destruction."""
-        try:
-            self.close()
-        except Exception:
-            # Ignore errors during cleanup
-            pass
+        pass
 
     async def summarize_article(
         self,
@@ -68,7 +69,7 @@ class Summarizer:
         url: str,
         title: Optional[str] = None,
     ) -> dict:
-        """Summarize an article using Gemini.
+        """Summarize an article using LLMTransport.
 
         Args:
             content: Article content (markdown)
@@ -104,7 +105,7 @@ class Summarizer:
         estimated_tokens = estimate_tokens(prompt) + 500  # Add margin for response
 
         # Retry loop for API errors
-        max_retries = 10  # Increased from 3 to 10 for "guaranteed" execution
+        max_retries = 10  # Increased for "guaranteed" execution
         last_error = None
         last_error_code = None
 
@@ -113,54 +114,34 @@ class Summarizer:
                 # Check rate limits and wait if needed
                 await self.rate_limiter.wait_if_needed(estimated_tokens)
 
+                # Limit absolute RPS bounds prior to concurrent burst lock
+                if hasattr(self, 'request_limiter') and self.request_limiter:
+                    await self.request_limiter.acquire()
+
                 # Acquire semaphore for concurrent request limiting
                 await self.rate_limiter.acquire()
 
                 try:
-                    logger.info(f"Summarizing article from {url} (est. {estimated_tokens} tokens)")
+                    logger.info(f"Summarizing article from {url} (est. {estimated_tokens} tokens) via {self.provider}")
 
-                    # Generate summary using async client
-                    response = await self.client.aio.models.generate_content(
-                        model=self.model_name,
-                        contents=prompt,
+                    # Generate summary using LLMTransport
+                    summary = await self.transport.call(
+                        prompt=prompt,
+                        provider=self.provider,
+                        max_tokens=2000,
+                        temperature=0.3
                     )
 
-                    # Extract summary text
-                    # Try using .text property first (works for simple text responses)
-                    try:
-                        summary = response.text.strip()
-                    except (ValueError, AttributeError):
-                        # Fallback: extract text from candidates manually
-                        if (
-                            response.candidates
-                            and response.candidates[0].content
-                            and response.candidates[0].content.parts
-                        ):
-                            text_parts = [
-                                part.text
-                                for part in response.candidates[0].content.parts
-                                if hasattr(part, "text") and part.text
-                            ]
-                            summary = " ".join(text_parts).strip() if text_parts else ""
-                        else:
-                            summary = ""
-
                     if summary:
-                        # Extract token usage
-                        tokens_used = (
-                            response.usage_metadata.total_token_count
-                            if hasattr(response, "usage_metadata")
-                            and response.usage_metadata
-                            and hasattr(response.usage_metadata, "total_token_count")
-                            else estimated_tokens
-                        )
+                        # Extract token usage (estimate since call returns string)
+                        tokens_used = estimated_tokens
 
                         # Record usage
                         await self.rate_limiter.record_request(tokens_used)
 
                         logger.info(
                             f"Successfully summarized {url}: {len(summary)} chars, "
-                            f"{tokens_used} tokens"
+                            f"{tokens_used} tokens (estimated)"
                         )
 
                         return {
@@ -172,14 +153,14 @@ class Summarizer:
                         }
                     else:
                         # Empty response is not a rate limit error, don't retry in this loop
-                        error_msg = "Empty response from Gemini"
+                        error_msg = "Empty response from LLMTransport"
                         logger.warning(f"{error_msg} for {url}")
                         return {
                             "success": False,
                             "summary": "",
                             "tokens_used": 0,
                             "error": error_msg,
-                            "error_code": "GEMINI_ERROR",
+                            "error_code": "LLM_ERROR",
                         }
 
                 finally:
@@ -191,23 +172,25 @@ class Summarizer:
                 last_error = error_msg
                 
                 # Check for specific error types
-                if "429" in error_msg or "quota" in error_msg.lower() or "resourceexhausted" in error_msg.lower():
+                if any(x in error_msg.lower() for x in ["429", "rate limit", "quota", "exhausted", "503", "unavailable"]):
                     last_error_code = "RATE_LIMIT_EXCEEDED"
                     if attempt < max_retries:
                         # Exponential backoff with jitter/cap: 5, 10, 20, 30, 30, ...
                         wait_time = min(5 * (2 ** attempt), 60)
                         logger.warning(f"Rate limit hit. Waiting {wait_time}s before retry...")
+                        import asyncio
                         await asyncio.sleep(wait_time)
                         continue
-                elif "token" in error_msg.lower() or "length" in error_msg.lower():
+                elif any(x in error_msg.lower() for x in ["token", "length", "context_length"]):
                     last_error_code = "TOKEN_LIMIT_EXCEEDED"
                     # Don't retry token limit errors
                     break
                 else:
-                    last_error_code = "GEMINI_ERROR"
+                    last_error_code = "LLM_ERROR"
                     # Retry generic errors just in case
                     if attempt < max_retries:
                         wait_time = 2 ** attempt
+                        import asyncio
                         await asyncio.sleep(wait_time)
                         continue
 
@@ -219,5 +202,5 @@ class Summarizer:
             "summary": f"FAILED TO SUMMARIZE due to API limits. Here is the raw content start: {content[:500]}...",
             "tokens_used": 0,
             "error": last_error,
-            "error_code": last_error_code or "GEMINI_ERROR",
+            "error_code": last_error_code or "LLM_ERROR",
         }

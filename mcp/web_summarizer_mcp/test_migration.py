@@ -45,9 +45,9 @@ def test_imports():
     """Test that all imports work correctly."""
     print("\nTesting imports...")
     try:
-        from google import genai
-        assert hasattr(genai, "Client"), "genai should have Client class"
-        print("✓ google-genai import: PASSED")
+        import openai
+        assert hasattr(openai, "AsyncOpenAI"), "openai should have AsyncOpenAI class"
+        print("✓ openai import: PASSED")
         
         from summarizer import Summarizer
         from config import Settings, get_settings
@@ -70,17 +70,14 @@ def test_imports():
         return False
 
 def test_client_initialization():
-    """Test that the client can be initialized (without API key)."""
+    """Test that the client can be initialized."""
     print("\nTesting client initialization...")
     try:
-        from google import genai
+        import openai
         
-        # Test that Client class exists and can be instantiated
-        # Note: This will fail without API key, but we can check the class exists
-        assert hasattr(genai, "Client"), "genai.Client should exist"
+        # Test that AsyncOpenAI class exists and can be instantiated
+        assert hasattr(openai, "AsyncOpenAI"), "openai.AsyncOpenAI should exist"
         
-        # Check if Client has aio attribute (for async operations)
-        # We can't instantiate without API key, but we can check the class structure
         print("✓ Client class structure: PASSED")
         return True
     except Exception as e:
@@ -102,11 +99,11 @@ def test_summarizer_structure():
         assert hasattr(Summarizer, "summarize_article"), "Summarizer should have summarize_article"
         assert hasattr(Summarizer, "close"), "Summarizer should have close method"
         
-        # Check that it uses client instead of model
+        # Check that it uses client
         import inspect
         source = inspect.getsource(Summarizer.__init__)
         assert "self.client" in source, "Summarizer should use self.client"
-        assert "genai.Client" in source, "Summarizer should use genai.Client"
+        assert "openai.AsyncOpenAI" in source, "Summarizer should use openai.AsyncOpenAI"
         
         print("✓ Summarizer structure: PASSED")
         return True

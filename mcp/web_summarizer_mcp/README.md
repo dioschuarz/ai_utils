@@ -1,13 +1,13 @@
 # Web Summarizer MCP Server
 
-FastMCP server for summarizing web content using Crawl4AI and Google Gemini.
+FastMCP server for summarizing web content using Crawl4AI and Google OpenRouter.
 
 ## Overview
 
 This MCP server provides intelligent web content summarization by:
 - Crawling web pages using Crawl4AI (with Playwright)
 - Extracting clean, LLM-ready content
-- Generating concise summaries using Google Gemini 2.0 Flash
+- Generating concise summaries using Google OpenRouter 2.0 Flash
 - Managing rate limits automatically (4000 req/min, 4M tokens/min)
 - Processing multiple URLs in parallel
 
@@ -24,9 +24,9 @@ Create a `.env` file in this folder with:
 MCP_HOST=0.0.0.0
 MCP_PORT=8000
 
-# Gemini API Configuration (REQUIRED)
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-2.0-flash-exp
+# OpenRouter API Configuration (REQUIRED)
+OPENROUTER_API_KEY=your_gemini_api_key_here
+OPENROUTER_INTERMEDIATE_MODEL=gemini-2.0-flash-exp
 
 # Rate Limiting Configuration
 MAX_TOKENS_PER_MINUTE=4000000
@@ -43,12 +43,12 @@ CRAWL_MAX_RETRIES=2
 
 ### Required Configuration
 
-- **GEMINI_API_KEY**: Your Google Gemini API key (required)
+- **OPENROUTER_API_KEY**: Your Google OpenRouter API key (required)
   - Get one at: https://aistudio.google.com/app/apikey
 
 ### Optional Configuration
 
-- **GEMINI_MODEL**: Gemini model to use (default: `gemini-2.0-flash-exp`)
+- **OPENROUTER_INTERMEDIATE_MODEL**: OpenRouter model to use (default: `gemini-2.0-flash-exp`)
 - **MAX_TOKENS_PER_MINUTE**: Token rate limit (default: 4000000)
 - **MAX_REQUESTS_PER_MINUTE**: Request rate limit (default: 4000)
 - **MAX_CONCURRENT_REQUESTS**: Concurrent processing limit (default: 5)
@@ -82,7 +82,7 @@ The server exposes 1 MCP tool:
 
 ### `summarize_web(urls: list[str], titles: Optional[list[str]] = None, max_urls: int = 10, timeout_per_url: int = 30)`
 
-Summarize web content from URLs using Crawl4AI and Gemini.
+Summarize web content from URLs using Crawl4AI and OpenRouter.
 
 **Parameters:**
 - `urls`: List of URLs to summarize (required, max 10)
@@ -210,7 +210,7 @@ The server handles errors gracefully:
 - `CRAWL_TIMEOUT`: Timeout while crawling URL
 - `CRAWL_ERROR`: Generic crawling error
 - `RATE_LIMIT_EXCEEDED`: Rate limit exceeded
-- `GEMINI_ERROR`: Error from Gemini API
+- `OPENROUTER_ERROR`: Error from OpenRouter API
 - `TOKEN_LIMIT_EXCEEDED`: Content too large for model
 - `NETWORK_ERROR`: Network connectivity error
 - `UNKNOWN_ERROR`: Unexpected error
@@ -239,15 +239,15 @@ The server handles errors gracefully:
 
 ## Troubleshooting
 
-### "GEMINI_API_KEY environment variable is required"
+### "OPENROUTER_API_KEY environment variable is required"
 
 - Ensure `.env` file exists in the `web_summarizer_mcp` directory
-- Verify `GEMINI_API_KEY` is set correctly
+- Verify `OPENROUTER_API_KEY` is set correctly
 - Check that the Docker container has access to the `.env` file
 
 ### Rate Limit Errors
 
-- Check your Gemini API quota limits
+- Check your OpenRouter API quota limits
 - Reduce `MAX_URLS_PER_REQUEST` or `MAX_CONCURRENT_REQUESTS`
 - Monitor `rate_limit_stats` in responses
 - Wait before making additional requests
@@ -273,7 +273,7 @@ For each URL (parallel, max 5 concurrent):
   1. Crawl URL (Crawl4AI + Playwright)
   2. Extract clean markdown content
   3. Check rate limits (tokens/requests)
-  4. Summarize with Gemini
+  4. Summarize with OpenRouter
   5. Record usage
   ↓
 Return aggregated results
@@ -283,7 +283,7 @@ Return aggregated results
 
 - **Crawl4AI**: Web crawling and content extraction
 - **Playwright**: Browser automation (Chromium)
-- **Google Generative AI**: Gemini API client
+- **Google Generative AI**: OpenRouter API client
 - **FastMCP**: MCP server framework
 
 ## Notes

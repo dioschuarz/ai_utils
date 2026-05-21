@@ -1,155 +1,63 @@
-"""Crawl4AI wrapper for web content extraction."""
+"""Lightweight crawler with aggressive retries and backoff for news extraction."""
 
 import asyncio
 import logging
-from typing import Optional
-
-from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
+import httpx
+import trafilatura
+import random
+import time
 
 logger = logging.getLogger(__name__)
 
-# Global crawler instance (reused across requests)
-_crawler: Optional[AsyncWebCrawler] = None
-_crawler_lock = asyncio.Lock()
+USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1'
+]
 
-
-async def get_crawler() -> AsyncWebCrawler:
-    """Get or create the global crawler instance.
-
-    Returns:
-        AsyncWebCrawler instance
-    """
-    global _crawler
-
-    async with _crawler_lock:
-        if _crawler is None:
-            browser_config = BrowserConfig(
-                headless=True,
-                verbose=True,  # Enable verbose logging to debug issues
-                # Add container-friendly arguments to prevent crashes
-                extra_args=[
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--disable-software-rasterizer",
-                    "--window-size=1920,1080",
-                ],
-            )
-            _crawler = AsyncWebCrawler(config=browser_config)
-            await _crawler.__aenter__()
-            logger.info("Initialized AsyncWebCrawler")
-
-    return _crawler
-
-
-async def crawl_url(url: str, timeout: int = 30, max_retries: int = 2) -> dict:
-    """Crawl a URL and extract clean markdown content.
-
-    Args:
-        url: URL to crawl
-        timeout: Timeout in seconds
-        max_retries: Maximum number of retry attempts
-
-    Returns:
-        Dictionary with:
-            - success: bool
-            - content: str (markdown content if successful)
-            - error: str (error message if failed)
-            - error_code: ErrorCode (error code if failed)
-    """
-    if not url or not url.startswith(("http://", "https://")):
-        return {
-            "success": False,
-            "content": "",
-            "error": f"Invalid URL: {url}",
-            "error_code": "INVALID_URL",
+async def crawl_url(url: str, timeout: int = 20, max_retries: int = 3) -> dict:
+    """Crawl a URL using Trafilatura with exponential backoff on 429/403."""
+    
+    for attempt in range(max_retries + 1):
+        headers = {
+            'User-Agent': random.choice(USER_AGENTS),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Referer': 'https://www.google.com/',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
         }
 
-    crawler = await get_crawler()
-
-    # Optimized configuration for robustness and clean content
-    run_config = CrawlerRunConfig(
-        cache_mode=CacheMode.BYPASS,  # Always fetch fresh content
-        word_count_threshold=10,  # Minimum word count to consider valid content
-        exclude_external_links=True,  # Don't follow external links
-        wait_for_images=False,  # Don't wait for images to load (faster)
-        page_timeout=timeout * 1000,  # Page timeout in ms
-        wait_until="domcontentloaded",  # Faster than networkidle
-        remove_overlay_elements=True,  # Remove popups/modals
-    )
-
-    last_error = None
-    for attempt in range(max_retries + 1):
         try:
-            logger.info(f"Crawling {url} (attempt {attempt + 1}/{max_retries + 1})")
-
-            # Use asyncio.wait_for to enforce timeout at the task level
-            # We add a small buffer (5s) to allow the internal page_timeout to trigger first if needed
-            result = await asyncio.wait_for(
-                crawler.arun(url=url, config=run_config),
-                timeout=timeout + 5,
-            )
-
-            if result.success and result.markdown:
-                content = result.markdown.strip()
-                if len(content) > 100:  # Ensure we got meaningful content
-                    logger.info(
-                        f"Successfully crawled {url}: {len(content)} characters"
-                    )
-                    return {
-                        "success": True,
-                        "content": content,
-                        "error": None,
-                        "error_code": None,
-                    }
+            logger.info(f"Crawling {url} (Attempt {attempt+1}/{max_retries+1})")
+            async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=timeout) as client:
+                response = await client.get(url)
+                
+                if response.status_code == 200:
+                    content = trafilatura.extract(response.text, include_comments=False, include_tables=True)
+                    if content and len(content) > 150:
+                        logger.info(f"Successfully extracted {len(content)} chars from {url}")
+                        return {"success": True, "content": content, "error": None, "error_code": None}
+                    else:
+                        logger.warning(f"Extraction returned empty or too short content for {url}")
+                
+                elif response.status_code in [429, 403]:
+                    # Rate limited or Forbidden - Wait and retry with backoff
+                    wait_time = (2 ** attempt) + random.uniform(1, 3)
+                    logger.warning(f"Status {response.status_code} for {url}. Waiting {wait_time:.1f}s before retry...")
+                    await asyncio.sleep(wait_time)
+                    continue
+                
                 else:
-                    logger.warning(
-                        f"Content too short for {url}: {len(content)} characters"
-                    )
-                    # Content too short might mean dynamic loading failed or blocked
-                    last_error = (
-                        f"Content too short or empty: {len(content)} characters"
-                    )
-            else:
-                error_msg = result.error_message or "Unknown crawl error"
-                logger.warning(f"Crawl failed for {url}: {error_msg}")
-                last_error = error_msg
-
-        except asyncio.TimeoutError:
-            error_msg = f"Timeout after {timeout}s"
-            logger.warning(f"Timeout crawling {url}: {error_msg}")
-            last_error = error_msg
+                    logger.warning(f"HTTP {response.status_code} for {url}")
 
         except Exception as e:
-            error_msg = f"Error crawling {url}: {str(e)}"
-            logger.error(error_msg, exc_info=True)
-            last_error = error_msg
+            logger.error(f"Exception during crawl of {url}: {e}")
+            if attempt < max_retries:
+                await asyncio.sleep(2)
+                continue
+            return {"success": False, "content": "", "error": str(e), "error_code": "CRAWL_FAILED"}
 
-        # Retry logic with exponential backoff
-        if attempt < max_retries:
-            wait_time = 2**attempt  # 1, 2, 4, 8...
-            logger.info(f"Retrying {url} in {wait_time}s...")
-            await asyncio.sleep(wait_time)
-
-    # All retries failed
-    return {
-        "success": False,
-        "content": "",
-        "error": last_error or "Unknown error",
-        "error_code": "CRAWL_ERROR",
-    }
-
-
-async def cleanup_crawler() -> None:
-    """Cleanup the global crawler instance."""
-    global _crawler
-
-    async with _crawler_lock:
-        if _crawler is not None:
-            try:
-                await _crawler.__aexit__(None, None, None)
-                logger.info("Cleaned up AsyncWebCrawler")
-            except Exception as e:
-                logger.error(f"Error cleaning up crawler: {e}")
-            finally:
-                _crawler = None
+    return {"success": False, "content": "", "error": "Failed after multiple retries", "error_code": "MAX_RETRIES_EXCEEDED"}
