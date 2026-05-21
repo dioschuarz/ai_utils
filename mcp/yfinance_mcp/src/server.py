@@ -990,6 +990,14 @@ def analyze_stock_sentiment(symbol: str = "RDOR3.SA") -> str:
     return f"Please analyze the market sentiment for {symbol} based on recent news and analyst recommendations. Identify any divergence between the institutional view and the latest news cycle."
 
 
+from starlette.responses import JSONResponse
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health(request):
+    """Health check endpoint."""
+    return JSONResponse({"status": "healthy"})
+
+
 def main() -> None:
     mcp.run(transport="http", host=_settings.mcp_host, port=_settings.mcp_port)
 

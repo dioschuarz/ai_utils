@@ -280,6 +280,14 @@ async def summarize_web(
     return dump_json(response)
 
 
+from starlette.responses import JSONResponse
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health(request):
+    """Health check endpoint."""
+    return JSONResponse({"status": "healthy"})
+
+
 def main() -> None:
     """Run the MCP server."""
     logger.info(f"Starting Web Summarizer MCP on {_settings.mcp_host}:{_settings.mcp_port}")

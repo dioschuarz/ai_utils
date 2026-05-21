@@ -207,5 +207,13 @@ async def get_key_levels(ticker: str) -> str:
         logger.error(f"Error getting levels for {ticker}: {error_msg}")
         return json.dumps({"error": f"Failed to get levels for {ticker}: {error_msg}"})
 
+from starlette.responses import JSONResponse
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health(request):
+    """Health check endpoint."""
+    return JSONResponse({"status": "healthy"})
+
+
 if __name__ == "__main__":
     mcp.run(transport="http", host=settings.mcp_host, port=settings.mcp_port)
