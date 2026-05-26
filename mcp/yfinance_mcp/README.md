@@ -29,7 +29,7 @@ WEB_SUMMARIZER_TIMEOUT=60
 MAX_NEWS_TO_SUMMARIZE=10
 ```
 
-**Note:** The `yfinance_get_ticker_news_summarized` tool requires `web_summarizer_mcp` to be running. If not configured or unavailable, the tool will return news without summaries when `fallback_on_error=True`.
+**Note:** The `yfinance_get_ticker_news_summarized` tool requires `web_summarizer` to be running. If not configured or unavailable, the tool will return news without summaries when `fallback_on_error=True`.
 
 ## Build and Run (Docker)
 
@@ -77,7 +77,7 @@ Returns JSON array where each news item includes:
 ### 2.5. `yfinance_get_ticker_news_summarized(symbol: str, max_news: int = 10, timeout_per_url: int = 30, fallback_on_error: bool = True)`
 Get news articles with AI-generated summaries in a single call.
 
-This tool combines `yfinance_get_ticker_news` with `web_summarizer_mcp` to provide comprehensive news analysis with AI-generated summaries using Google Gemini.
+This tool combines `yfinance_get_ticker_news` with `web_summarizer` to provide comprehensive news analysis with AI-generated summaries using Google Gemini.
 
 **Parameters:**
 - `symbol`: Stock ticker symbol (e.g., 'AAPL', 'PETR4.SA')
@@ -95,7 +95,7 @@ This tool combines `yfinance_get_ticker_news` with `web_summarizer_mcp` to provi
 - `failed_summaries`: Array of news items that failed summarization (if any)
 - `metadata`: Processing statistics (total_news, summarized, failed, total_tokens_used, total_processing_time_seconds)
 - `fallback_used`: Boolean indicating if fallback to news-only was used
-- `rate_limit_stats`: Rate limiter statistics from web_summarizer_mcp (if available)
+- `rate_limit_stats`: Rate limiter statistics from web_summarizer (if available)
 
 **Benefits:**
 - Single MCP call instead of two separate calls
@@ -104,13 +104,13 @@ This tool combines `yfinance_get_ticker_news` with `web_summarizer_mcp` to provi
 - Comprehensive error handling
 
 **Dependencies:**
-- Requires `web_summarizer_mcp` to be running and accessible
+- Requires `web_summarizer` to be running and accessible
 - Configure `WEB_SUMMARIZER_URL` environment variable if using custom setup
   - Default: `http://localhost:8103/sse` (local) or `http://web-summarizer-mcp:8000/sse` (Docker)
 
 **Performance:**
 - Typically takes 30-60 seconds for 10 news articles
-- If `web_summarizer_mcp` is unavailable and `fallback_on_error=True`, returns news only (fast fallback)
+- If `web_summarizer` is unavailable and `fallback_on_error=True`, returns news only (fast fallback)
 - See comparison tests for detailed performance metrics vs. separate calls
 
 **Example:**

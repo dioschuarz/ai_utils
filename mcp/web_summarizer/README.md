@@ -67,7 +67,7 @@ docker network create investment-net
 2. Start services:
 
 ```bash
-docker compose -f /home/ds/projects/ai_utils/mcp/web_summarizer_mcp/docker-compose.yml up --build
+docker compose -f /home/ds/projects/ai_utils/mcp/web_summarizer/docker-compose.yml up --build
 ```
 
 Or use the unified docker-compose from the parent directory:
@@ -241,7 +241,7 @@ The server handles errors gracefully:
 
 ### "OPENROUTER_API_KEY environment variable is required"
 
-- Ensure `.env` file exists in the `web_summarizer_mcp` directory
+- Ensure `.env` file exists in the `web_summarizer` directory
 - Verify `OPENROUTER_API_KEY` is set correctly
 - Check that the Docker container has access to the `.env` file
 

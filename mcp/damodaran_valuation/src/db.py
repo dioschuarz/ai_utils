@@ -21,6 +21,7 @@ def get_conn() -> Iterator[psycopg.Connection]:
         user=settings.db_user,
         password=settings.db_password,
         sslmode=settings.db_sslmode,
+        options=f"-c search_path={settings.db_schema},public",
         row_factory=dict_row,
     )
     try:

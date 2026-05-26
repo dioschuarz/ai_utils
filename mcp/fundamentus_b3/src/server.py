@@ -292,7 +292,13 @@ def main() -> None:
     if cleared > 0:
         logger.info(f"Cleared {cleared} expired cache entries on startup")
     
-    mcp.run(transport="http", host=_settings.mcp_host, port=_settings.mcp_port)
+    mcp.run(
+        transport="http",
+        host=_settings.mcp_host,
+        port=_settings.mcp_port,
+        stateless_http=True,
+        json_response=True,
+    )
 
 
 if __name__ == "__main__":

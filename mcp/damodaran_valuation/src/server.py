@@ -219,7 +219,13 @@ async def health(request):
 
 
 def main() -> None:
-    mcp.run(transport="http", host=_settings.mcp_host, port=_settings.mcp_port)
+    mcp.run(
+        transport="http",
+        host=_settings.mcp_host,
+        port=_settings.mcp_port,
+        stateless_http=True,
+        json_response=True,
+    )
 
 
 if __name__ == "__main__":

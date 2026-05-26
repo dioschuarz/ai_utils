@@ -58,7 +58,7 @@ def test_imports():
     except ImportError as e:
         print(f"✗ Imports: FAILED - {e}")
         print("\nNote: You may need to install dependencies:")
-        print("  cd /home/ds/projects/ai_utils/mcp/web_summarizer_mcp")
+        print("  cd /home/ds/projects/ai_utils/mcp/web_summarizer")
         print("  uv sync")
         import traceback
         traceback.print_exc()

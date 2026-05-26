@@ -187,7 +187,7 @@ def main():
     if passed == total:
         print("\n✓ All structural tests passed!")
         print("\nNote: To test with actual API calls, install dependencies:")
-        print("  cd /home/ds/projects/ai_utils/mcp/web_summarizer_mcp")
+        print("  cd /home/ds/projects/ai_utils/mcp/web_summarizer")
         print("  uv sync")
         return 0
     else:

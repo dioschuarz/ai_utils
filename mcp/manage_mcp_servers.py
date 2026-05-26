@@ -201,7 +201,7 @@ class MCPServerManager:
             "damodaran_valuation": "http://localhost:8100/mcp",
             "fundamentus_b3": "http://localhost:8101/mcp",
             "yfinance_mcp": "http://localhost:8102/mcp",
-            "web_summarizer_mcp": "http://localhost:8103/mcp",
+            "web_summarizer": "http://localhost:8103/mcp",
             "technical_analyst": "http://localhost:8104/mcp",
         }
 

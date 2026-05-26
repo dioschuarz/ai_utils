@@ -1,4 +1,4 @@
-"""Client for calling web_summarizer_mcp from yfinance_mcp."""
+"""Client for calling web_summarizer from yfinance_mcp."""
 
 import asyncio
 import json
@@ -19,13 +19,13 @@ logger = logging.getLogger(__name__)
 
 
 class WebSummarizerClient:
-    """Client for calling web_summarizer_mcp via SSE."""
+    """Client for calling web_summarizer via SSE."""
 
     def __init__(self, url: str, timeout: int = 300):
         """Initialize client.
 
         Args:
-            url: URL to web_summarizer_mcp SSE endpoint
+            url: URL to web_summarizer SSE endpoint
             timeout: Timeout in seconds for the entire operation
         """
         self.url = url
@@ -38,7 +38,7 @@ class WebSummarizerClient:
         max_urls: int = 10,
         timeout_per_url: int = 30,
     ) -> dict:
-        """Summarize URLs using web_summarizer_mcp.
+        """Summarize URLs using web_summarizer.
 
         Args:
             urls: List of URLs to summarize
@@ -51,7 +51,7 @@ class WebSummarizerClient:
 
         Raises:
             TimeoutError: If operation exceeds timeout
-            ConnectionError: If cannot connect to web_summarizer_mcp
+            ConnectionError: If cannot connect to web_summarizer
         """
         if not urls:
             return {
@@ -61,7 +61,7 @@ class WebSummarizerClient:
 
         try:
             logger.info(
-                f"Connecting to web_summarizer_mcp at {self.url} "
+                f"Connecting to web_summarizer at {self.url} "
                 f"to summarize {len(urls)} URLs (timeout={self.timeout}s)"
             )
 
@@ -74,7 +74,7 @@ class WebSummarizerClient:
             return result
 
         except asyncio.TimeoutError:
-            error_msg = f"Timeout after {self.timeout}s while calling web_summarizer_mcp"
+            error_msg = f"Timeout after {self.timeout}s while calling web_summarizer"
             logger.error(error_msg)
             return {
                 "error": error_msg,
@@ -82,7 +82,7 @@ class WebSummarizerClient:
             }
 
         except Exception as e:
-            error_msg = f"Error calling web_summarizer_mcp: {str(e)}"
+            error_msg = f"Error calling web_summarizer: {str(e)}"
             logger.error(error_msg, exc_info=True)
             return {
                 "error": error_msg,
@@ -128,12 +128,12 @@ class WebSummarizerClient:
                     except json.JSONDecodeError as e:
                         logger.error(f"Failed to parse JSON response: {e}")
                         return {
-                            "error": f"Invalid JSON response from web_summarizer_mcp: {str(e)}",
+                            "error": f"Invalid JSON response from web_summarizer: {str(e)}",
                             "error_code": "INVALID_RESPONSE",
                             "raw_response": response_text[:500],
                         }
                 else:
                     return {
-                        "error": "Empty response from web_summarizer_mcp",
+                        "error": "Empty response from web_summarizer",
                         "error_code": "EMPTY_RESPONSE",
                     }

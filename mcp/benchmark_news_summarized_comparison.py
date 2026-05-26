@@ -338,7 +338,7 @@ async def main():
     print(f"Agent Thinking Time: {agent_thinking_time}s per decision")
     print(f"\n⚠️  Make sure both MCP servers are running:")
     print(f"   - yfinance_mcp: http://localhost:8102/sse")
-    print(f"   - web_summarizer_mcp: http://localhost:8103/sse")
+    print(f"   - web_summarizer: http://localhost:8103/sse")
     print()
 
     # Run both tests

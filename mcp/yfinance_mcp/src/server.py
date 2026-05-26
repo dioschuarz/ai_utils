@@ -203,7 +203,7 @@ async def get_ticker_news_summarized(
 ) -> str:
     """Fetch recent news articles for a stock and get AI-generated summaries in a single call.
 
-    This tool combines yfinance_get_ticker_news with web_summarizer_mcp to provide
+    This tool combines yfinance_get_ticker_news with web_summarizer to provide
     comprehensive news analysis with AI-generated summaries. It automatically extracts
     URLs from news articles and summarizes them using Google Gemini.
 
@@ -221,12 +221,12 @@ async def get_ticker_news_summarized(
     - summary: Summary data with status, tokens_used, processing_time_seconds
 
     Dependencies:
-    - Requires web_summarizer_mcp to be running and accessible
+    - Requires web_summarizer to be running and accessible
     - Configure WEB_SUMMARIZER_URL if using custom setup
 
     Performance:
     - Typically takes 30-60 seconds for 10 news articles
-    - If web_summarizer_mcp is unavailable and fallback_on_error=True, returns news only
+    - If web_summarizer is unavailable and fallback_on_error=True, returns news only
     """
     start_time = time.time()
 
@@ -272,7 +272,7 @@ async def get_ticker_news_summarized(
             f"(out of {len(urls)} available)"
         )
 
-        # Step 4: Call web_summarizer_mcp
+        # Step 4: Call web_summarizer
         client = WebSummarizerClient(
             url=_settings.web_summarizer_url,
             timeout=_settings.web_summarizer_timeout,
@@ -999,7 +999,13 @@ async def health(request):
 
 
 def main() -> None:
-    mcp.run(transport="http", host=_settings.mcp_host, port=_settings.mcp_port)
+    mcp.run(
+        transport="http",
+        host=_settings.mcp_host,
+        port=_settings.mcp_port,
+        stateless_http=True,
+        json_response=True,
+    )
 
 
 if __name__ == "__main__":
