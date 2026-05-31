@@ -73,13 +73,37 @@ def test_summarizer_structure():
         init_source = inspect.getsource(Summarizer.__init__)
         summarize_source = inspect.getsource(Summarizer.summarize_article)
         
-        assert "openai.AsyncOpenAI" in init_source, "Should use openai.AsyncOpenAI"
-        assert "self.client" in init_source, "Should use self.client"
-        assert "client.chat.completions.create" in summarize_source or "self.client.chat.completions.create" in summarize_source, "Should use chat.completions.create"
+        assert "LLMTransport" in init_source, "Should use LLMTransport"
+        assert "self.transport" in init_source, "Should use self.transport"
+        assert "self.transport.call" in summarize_source, "Should use transport.call"
         
         print("  ✓ All required methods present")
-        print("  ✓ Uses openai.AsyncOpenAI")
-        print("  ✓ Uses client.chat.completions.create for async")
+        print("  ✓ Uses LLMTransport")
+        print("  ✓ Uses self.transport.call for summarization")
+        return True
+    except Exception as e:
+        print(f"  ✗ Failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def test_summarize_content_tool():
+    """Test summarize_content tool function exists and is callable."""
+    print("\nTesting summarize_content tool...")
+    try:
+        from src.server import summarize_content, ArticleSummaryDTO
+        import inspect
+        
+        # Check signature
+        sig = inspect.signature(summarize_content)
+        assert "content" in sig.parameters, "Should have 'content' parameter"
+        assert "url" in sig.parameters, "Should have 'url' parameter"
+        assert "title" in sig.parameters, "Should have 'title' parameter"
+        assert "ticker_context" in sig.parameters, "Should have 'ticker_context' parameter"
+        assert "parent_trace_id" in sig.parameters, "Should have 'parent_trace_id' parameter"
+        
+        print("  ✓ summarize_content tool exists and has correct parameters")
+        print("  ✓ ArticleSummaryDTO is defined")
         return True
     except Exception as e:
         print(f"  ✗ Failed: {e}")
@@ -97,6 +121,7 @@ def main():
     results.append(("openai import", test_openai_import()))
     results.append(("Prompt loading", test_prompt_loading()))
     results.append(("Summarizer structure", test_summarizer_structure()))
+    results.append(("summarize_content tool", test_summarize_content_tool()))
     
     print("\n" + "=" * 60)
     print("Test Summary")

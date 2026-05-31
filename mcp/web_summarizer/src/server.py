@@ -3,11 +3,11 @@
 import asyncio
 import logging
 import time
-from typing import Annotated, Optional
+from typing import Annotated, Optional, List, Literal
 
 from fastmcp import FastMCP
 from mcp.types import ToolAnnotations
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from .config import Settings, get_settings
 from .crawler import crawl_url
@@ -35,6 +35,84 @@ _summarizer = Summarizer(_settings, _rate_limiter)
 # Semaphore for concurrent crawling (browser is resource intensive)
 # We use the same limit as max_concurrent_requests, or could be separate.
 _crawl_semaphore = asyncio.Semaphore(_settings.max_concurrent_requests)
+class ArticleSummaryDTO(BaseModel):
+    """Structured investment-focused summary of a single article."""
+
+    summary: str = Field(..., description="Concise investment-grade summary text")
+    sentiment: Literal["BULLISH", "BEARISH", "NEUTRAL"] = Field(..., description="Sentiment classification")
+    key_catalysts: List[str] = Field(..., description="List of market catalyst factors identified")
+    risk_factors: List[str] = Field(..., description="List of risk factors or warning signs mentioned")
+    entities_mentioned: List[str] = Field(..., description="List of tickers or companies mentioned")
+    confidence_score: float = Field(..., description="Summarizer confidence rating (0.0 to 1.0)")
+    topic_classification: List[str] = Field(..., description="Broad classification categories")
+
+
+@mcp.tool(
+    name="summarize_content",
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
+async def summarize_content(
+    content: Annotated[
+        str,
+        Field(description="Cleaned article markdown content to summarize")
+    ],
+    url: Annotated[
+        str,
+        Field(description="Original source URL")
+    ],
+    title: Annotated[
+        Optional[str],
+        Field(description="Optional original article title")
+    ] = None,
+    ticker_context: Annotated[
+        Optional[str],
+        Field(description="Optional ticker context (for context-aware summarization)")
+    ] = None,
+    parent_trace_id: Annotated[
+        Optional[str],
+        Field(description="Optional parent trace ID for observability tracking")
+    ] = None,
+) -> str:
+    """Summarize markdown/text content using local LLMTransport and return a structured JSON summary."""
+    prompt = f"Analyze and summarize the following news article content.\n"
+    if ticker_context:
+        prompt += f"Focus the analysis specifically on the ticker context: {ticker_context}.\n"
+    if title:
+        prompt += f"Title: {title}\n"
+    prompt += f"URL: {url}\n\nContent:\n{content[:50000]}"
+
+    try:
+        result = await _summarizer.transport.call_structured(
+            prompt=prompt,
+            schema=ArticleSummaryDTO,
+            temperature=0.3,
+            max_tokens=2000,
+            trace_name="summarize_content",
+            metadata={
+                "url": url,
+                "ticker": ticker_context or "",
+                "parent_trace_id": parent_trace_id or ""
+            }
+        )
+        return dump_json(result)
+    except Exception as e:
+        logger.error(f"Structured summarization failed: {e}", exc_info=True)
+        # Graceful fallback: return a default structured payload with error details
+        fallback = {
+            "summary": f"Failed to generate structured summary. Content starts: {content[:200]}...",
+            "sentiment": "NEUTRAL",
+            "key_catalysts": [],
+            "risk_factors": [f"Error: {str(e)}"],
+            "entities_mentioned": [ticker_context] if ticker_context else [],
+            "confidence_score": 0.0,
+            "topic_classification": ["Error"]
+        }
+        return dump_json(fallback)
 
 
 @mcp.tool(

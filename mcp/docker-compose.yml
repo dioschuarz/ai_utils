@@ -129,6 +129,81 @@ services:
       retries: 3
       start_period: 40s
 
+  # News Discovery MCP Server
+  news-discovery-mcp:
+    build:
+      context: ./news_discovery
+      network: host
+    container_name: news-discovery-mcp
+    restart: unless-stopped
+    env_file:
+      - ../docker/.env
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+    ports:
+      - "8105:8000"
+    networks:
+      - investment-net
+    healthcheck:
+      test: [ "CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")' || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Web Content Extraction MCP Server
+  web-extraction-mcp:
+    build:
+      context: ./web_extraction
+      network: host
+    container_name: web-extraction-mcp
+    restart: unless-stopped
+    env_file:
+      - ../docker/.env
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+    ports:
+      - "8106:8000"
+    networks:
+      - investment-net
+    healthcheck:
+      test: [ "CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")' || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Fundamental Analysis MCP Server
+  fundamental-analysis-mcp:
+    build:
+      context: ./fundamental_analysis
+      network: host
+    container_name: fundamental-analysis-mcp
+    restart: unless-stopped
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+      - POSTGRES_HOST=supabase-db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=supabase_admin
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-your-super-secret-and-long-postgres-password}
+      - POSTGRES_DB=postgres
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8107:8000"
+    networks:
+      - investment-net
+      - supabase_default
+    healthcheck:
+      test: [ "CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")' || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
 networks:
   investment-net:
     driver: bridge
