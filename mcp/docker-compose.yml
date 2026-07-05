@@ -204,6 +204,29 @@ services:
       retries: 3
       start_period: 40s
 
+  # Macro Indicators MCP Server
+  macro-indicators-mcp:
+    build:
+      context: ./macro_indicators
+      network: host
+    container_name: macro-indicators-mcp
+    restart: unless-stopped
+    env_file:
+      - ../docker/.env
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+    ports:
+      - "8108:8000"
+    networks:
+      - investment-net
+    healthcheck:
+      test: [ "CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")' || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
 networks:
   investment-net:
     driver: bridge

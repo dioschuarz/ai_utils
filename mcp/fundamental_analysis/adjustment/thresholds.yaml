@@ -1,0 +1,181 @@
+version: "2026-06-04"
+
+thresholds:
+  growth:
+    high_growth_cagr: 0.20
+    growth_cagr: 0.10
+    stable_cagr: 0.02
+  cash_flow:
+    min_years_for_stable: 3
+    volatile_margin: 0.05
+  dividend:
+    high_yield: 0.05
+    stable_yield: 0.015
+    min_years: 3
+  profitability:
+    high_return_roe: 0.20
+    profitable_roe: 0.05
+    distressed_roe: 0.0
+  balance_sheet:
+    levered_debt_to_ebitda: 3.5
+    net_cash_debt_to_equity: 0.0
+    interest_coverage_balanced: 2.0
+
+rules:
+  - rule_id: "dividend.stable.enable_ddm"
+    description: "Enable DDM for stable dividend payers"
+    affected_methodology: "DDM"
+    priority: 10
+    enabled: true
+    conditions:
+      - field: "profile.dividend_profile"
+        operator: "in"
+        value: ["stable", "high_yield"]
+    actions:
+      - parameter: "methodology_weight"
+        action_type: "set_weight"
+        value: 1.0
+        reason: "Stable dividend profile supports DDM relevance."
+      - parameter: "economically_applicable"
+        action_type: "set"
+        value: true
+        reason: "Stable dividend profile supports DDM relevance."
+
+  - rule_id: "dividend.none.disable_ddm"
+    description: "Disable DDM for non-dividend payers"
+    affected_methodology: "DDM"
+    priority: 20
+    enabled: true
+    conditions:
+      - field: "profile.dividend_profile"
+        operator: "eq"
+        value: "none"
+    actions:
+      - parameter: "economically_applicable"
+        action_type: "disable_methodology"
+        value: "ECONOMICALLY_INAPPLICABLE_NO_DIVIDENDS"
+        reason: "Non-dividend company is economically inapplicable for DDM."
+
+  - rule_id: "dcf.stable_positive.use_reported"
+    description: "Stable positive cash flow profile uses standard DCF"
+    affected_methodology: "DCF"
+    priority: 10
+    enabled: true
+    conditions:
+      - field: "profile.cash_flow_profile"
+        operator: "eq"
+        value: "stable_positive"
+    actions:
+      - parameter: "use_normalized_fcf"
+        action_type: "set"
+        value: false
+        reason: "Stable positive cash flow uses reported FCF."
+
+  - rule_id: "dcf.volatile.use_normalized"
+    description: "Volatile or negative cash flow uses normalized DCF"
+    affected_methodology: "DCF"
+    priority: 15
+    enabled: true
+    conditions:
+      - field: "profile.cash_flow_profile"
+        operator: "in"
+        value: ["volatile", "negative"]
+    actions:
+      - parameter: "use_normalized_fcf"
+        action_type: "set"
+        value: true
+        reason: "Volatile or negative cash flow requires normalized FCF."
+
+  - rule_id: "dcf.high_growth.extend_horizon"
+    description: "High growth profile extends DCF forecast horizon"
+    affected_methodology: "DCF"
+    priority: 20
+    enabled: true
+    conditions:
+      - field: "profile.growth_profile"
+        operator: "eq"
+        value: "high_growth"
+    actions:
+      - parameter: "forecast_horizon"
+        action_type: "set"
+        value: 10
+        reason: "High growth companies require extended forecast horizon."
+
+  - rule_id: "dcf.levered.expand_sensitivity"
+    description: "Levered balance sheet expands WACC sensitivity bounds"
+    affected_methodology: "DCF"
+    priority: 30
+    enabled: true
+    conditions:
+      - field: "profile.balance_sheet_profile"
+        operator: "eq"
+        value: "levered"
+    actions:
+      - parameter: "wacc_sensitivity_range"
+        action_type: "set"
+        value: 0.03
+        reason: "Highly leveraged capital structure increases sensitivity risk."
+
+  - rule_id: "dcf.mature.terminal_growth"
+    description: "Mature growth profile uses capped terminal growth of 3%"
+    affected_methodology: "DCF"
+    priority: 25
+    enabled: true
+    conditions:
+      - field: "profile.growth_profile"
+        operator: "eq"
+        value: "stable"
+    actions:
+      - parameter: "terminal_growth"
+        action_type: "set"
+        value: 0.03
+        reason: "Stable/mature growth profile supports 3.0% terminal growth."
+
+  - rule_id: "dcf.mature.growth_decay"
+    description: "Stable growth profile applies a growth decay factor of 90% per year"
+    affected_methodology: "DCF"
+    priority: 25
+    enabled: true
+    conditions:
+      - field: "profile.growth_profile"
+        operator: "eq"
+        value: "stable"
+    actions:
+      - parameter: "growth_decay"
+        action_type: "set"
+        value: 0.90
+        reason: "Decay growth rate towards terminal growth rate over the forecast horizon."
+
+  - rule_id: "ddm.mature.gdp_cap"
+    description: "Cap DDM sustainable growth at nominal GDP growth rate"
+    affected_methodology: "DDM"
+    priority: 25
+    enabled: true
+    conditions:
+      - field: "profile.growth_profile"
+        operator: "eq"
+        value: "stable"
+    actions:
+      - parameter: "nominal_gdp_growth"
+        action_type: "set"
+        value: 0.04
+        reason: "Cap DDM sustainable growth rate to prevent Gordon model violation."
+
+  - rule_id: "cca.mature.peer_blend"
+    description: "Blends local and US peers for mature companies"
+    affected_methodology: "CCA"
+    priority: 25
+    enabled: true
+    conditions:
+      - field: "profile.growth_profile"
+        operator: "eq"
+        value: "stable"
+    actions:
+      - parameter: "peer_weight_local"
+        action_type: "set"
+        value: 0.80
+        reason: "Assign 80% weight to local comparable peers."
+      - parameter: "peer_weight_us"
+        action_type: "set"
+        value: 0.20
+        reason: "Assign 20% weight to US benchmark peers."

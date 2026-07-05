@@ -8,6 +8,7 @@ import yfinance as yf
 from fastmcp import FastMCP
 from typing import Dict, Any, Optional
 from .config import get_settings
+from .chart_data import get_chart_data_internal
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 # NOTE: Langfuse tracing is handled by the CLIENT (mcp_client.py)
@@ -206,6 +207,20 @@ async def get_key_levels(ticker: str) -> str:
 
         logger.error(f"Error getting levels for {ticker}: {error_msg}")
         return json.dumps({"error": f"Failed to get levels for {ticker}: {error_msg}"})
+
+@mcp.tool()
+async def get_chart_data(ticker: str, period: str = "1y") -> Dict[str, Any]:
+    """
+    Fetches raw OHLCV and technical indicators data for a given ticker and period.
+    Returns a VisualizationData structured object.
+    """
+    try:
+        logger.info(f"MCP tool get_chart_data called for {ticker} (period={period})")
+        data = await get_chart_data_internal(ticker, period)
+        return data.model_dump()
+    except Exception as e:
+        logger.error(f"Error in get_chart_data tool for {ticker}: {e}")
+        return {"error": f"Failed to get chart data: {str(e)}"}
 
 from starlette.responses import JSONResponse
 

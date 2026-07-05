@@ -32,12 +32,11 @@ class CCAMethodology(BaseMethodology):
         # Operating cash flow acts as a high-quality proxy for EBITDA
         ebitda = financial_data.get("ebitda", 0.0) or financial_data.get("operating_cash_flow", 0.0)
 
-        # 2. Gather peer multiples
-        peer_pes = []
-        peer_ev_ebitdas = []
-        peer_ev_revenues = []
-        
+        # 2. Gather peer multiples split by country (BR vs US)
+        br_pes, br_ev_ebitdas, br_ev_revenues = [], [], []
+        us_pes, us_ev_ebitdas, us_ev_revenues = [], [], []
         peer_companies = []
+
         for idx, p in enumerate(peers):
             ticker = p.get("ticker", f"PEER{idx}")
             mcap = p.get("market_cap", 0.0)
@@ -48,71 +47,141 @@ class CCAMethodology(BaseMethodology):
                 market_cap=mcap,
                 multiples=multiples
             ))
-            
-            if multiples.get("P/E"):
-                peer_pes.append(float(multiples["P/E"]))
-            if multiples.get("EV/EBITDA"):
-                peer_ev_ebitdas.append(float(multiples["EV/EBITDA"]))
-            if multiples.get("EV/Revenue"):
-                peer_ev_revenues.append(float(multiples["EV/Revenue"]))
 
-        # 3. Handle peer multiples fallback
-        if len(peer_companies) < 2 or (not peer_pes and not peer_ev_ebitdas and not peer_ev_revenues):
-            fallback_applied = True
-            # Sector-specific default multiples
-            sector = (request.gics_sector or "").lower()
-            if "tech" in sector or "information technology" in sector:
-                avg_pe, avg_ev_ebitda, avg_ev_rev = 28.0, 18.0, 6.0
-                assumptions.append("Applied default Technology multiples fallback")
-            elif "financial" in sector:
-                avg_pe, avg_ev_ebitda, avg_ev_rev = 12.0, 8.0, 2.0
-                assumptions.append("Applied default Financials multiples fallback")
-            elif "energy" in sector:
-                avg_pe, avg_ev_ebitda, avg_ev_rev = 10.0, 5.5, 1.5
-                assumptions.append("Applied default Energy multiples fallback")
+            is_br = ticker.upper().endswith(".BR") or ticker.upper().endswith(".SA")
+            
+            pe = multiples.get("P/E")
+            ev_eb = multiples.get("EV/EBITDA")
+            ev_rev = multiples.get("EV/Revenue")
+            
+            if pe is not None:
+                if is_br: br_pes.append(float(pe))
+                else: us_pes.append(float(pe))
+            if ev_eb is not None:
+                if is_br: br_ev_ebitdas.append(float(ev_eb))
+                else: us_ev_ebitdas.append(float(ev_eb))
+            if ev_rev is not None:
+                if is_br: br_ev_revenues.append(float(ev_rev))
+                else: us_ev_revenues.append(float(ev_rev))
+
+        # Check total peers count
+        if len(peer_companies) < 2 or (
+            not br_pes and not br_ev_ebitdas and not br_ev_revenues and
+            not us_pes and not us_ev_ebitdas and not us_ev_revenues
+        ):
+            return self.create_diagnostic_result(
+                reason_code="INSUFFICIENT_PEERS",
+                explanation=f"CCA requires at least 2 comparable peer companies. Only {len(peer_companies)} were found.",
+                triggering_metrics={"peer_count": float(len(peer_companies))},
+                analytical_implication="Comparable Company Analysis relies on a statistically meaningful peer group. Without sufficient peers, we cannot establish representative sector multiples.",
+                baseline_metrics={
+                    "shares_outstanding": shares_outstanding,
+                    "current_price": current_price
+                },
+                peer_comparison=peer_companies,
+                assumptions=assumptions
+            )
+
+        # Determine target country
+        is_target_brl = request.ticker.upper().endswith(".BR") or request.ticker.upper().endswith(".SA") or financial_data.get("currency") == "BRL"
+
+        # Calculate averages for BR
+        avg_pe_br = sum(br_pes) / len(br_pes) if br_pes else (sum(us_pes) / len(us_pes) if us_pes else 0.0)
+        avg_ev_ebitda_br = sum(br_ev_ebitdas) / len(br_ev_ebitdas) if br_ev_ebitdas else (sum(us_ev_ebitdas) / len(us_ev_ebitdas) if us_ev_ebitdas else 0.0)
+        avg_ev_rev_br = sum(br_ev_revenues) / len(br_ev_revenues) if br_ev_revenues else (sum(us_ev_revenues) / len(us_ev_revenues) if us_ev_revenues else 0.0)
+
+        # Calculate averages for US
+        avg_pe_us = sum(us_pes) / len(us_pes) if us_pes else (sum(br_pes) / len(br_pes) if br_pes else 0.0)
+        avg_ev_ebitda_us = sum(us_ev_ebitdas) / len(us_ev_ebitdas) if us_ev_ebitdas else (sum(br_ev_ebitdas) / len(br_ev_ebitdas) if br_ev_ebitdas else 0.0)
+        avg_ev_rev_us = sum(us_ev_revenues) / len(us_ev_revenues) if us_ev_revenues else (sum(br_ev_revenues) / len(br_ev_revenues) if br_ev_revenues else 0.0)
+
+        avg_pe = avg_pe_br if is_target_brl else avg_pe_us
+        avg_ev_ebitda = avg_ev_ebitda_br if is_target_brl else avg_ev_ebitda_us
+        avg_ev_rev = avg_ev_rev_br if is_target_brl else avg_ev_rev_us
+
+        assumptions.append(f"Derived multiples from peer group of {len(peer_companies)} companies")
+        if br_pes or br_ev_ebitdas or br_ev_revenues:
+            if is_target_brl:
+                assumptions.append(f"BR Peer Averages - P/E: {avg_pe_br:.1f}x, EV/EBITDA: {avg_ev_ebitda_br:.1f}x, EV/Rev: {avg_ev_rev_br:.1f}x")
             else:
-                avg_pe, avg_ev_ebitda, avg_ev_rev = 18.0, 11.0, 3.0
-                assumptions.append("Applied default broad-market multiples fallback")
-        else:
-            avg_pe = sum(peer_pes) / len(peer_pes) if peer_pes else 0.0
-            avg_ev_ebitda = sum(peer_ev_ebitdas) / len(peer_ev_ebitdas) if peer_ev_ebitdas else 0.0
-            avg_ev_rev = sum(peer_ev_revenues) / len(peer_ev_revenues) if peer_ev_revenues else 0.0
-            assumptions.append(f"Derived multiples from peer group of {len(peer_companies)} companies")
+                assumptions.append("Local peer group (Brazil) used exclusively for country-risk normalization.")
+        if us_pes or us_ev_ebitdas or us_ev_revenues:
+            assumptions.append(f"US Peer Averages - P/E: {avg_pe_us:.1f}x, EV/EBITDA: {avg_ev_ebitda_us:.1f}x, EV/Rev: {avg_ev_rev_us:.1f}x")
 
-        # 4. Perform valuations
-        valuations = []
-        
-        # P/E Valuation
-        if eps > 0 and avg_pe > 0:
-            pe_val = eps * avg_pe
-            valuations.append(pe_val)
-            assumptions.append(f"P/E Valuation: {pe_val:.2f} (EPS={eps:.2f} * Peer P/E={avg_pe:.1f}x)")
+        # 3. Valuation Helper
+        def compute_valuation(pe_mult, ev_ebitda_mult, ev_rev_mult):
+            vals = []
+            if eps > 0 and pe_mult > 0:
+                vals.append(eps * pe_mult)
+            if ebitda > 0 and ev_ebitda_mult > 0 and shares_outstanding > 0:
+                target_ev = ebitda * ev_ebitda_mult
+                target_equity = target_ev - total_debt + total_cash
+                val = target_equity / shares_outstanding
+                if val > 0:
+                    vals.append(val)
+            if revenue > 0 and ev_rev_mult > 0 and shares_outstanding > 0:
+                target_ev_rev = revenue * ev_rev_mult
+                target_equity_rev = target_ev_rev - total_debt + total_cash
+                val = target_equity_rev / shares_outstanding
+                if val > 0:
+                    vals.append(val)
             
-        # EV/EBITDA Valuation
-        if ebitda > 0 and avg_ev_ebitda > 0 and shares_outstanding > 0:
-            target_ev = ebitda * avg_ev_ebitda
-            target_equity = target_ev - total_debt + total_cash
-            ev_ebitda_val = target_equity / shares_outstanding
-            if ev_ebitda_val > 0:
-                valuations.append(ev_ebitda_val)
-                assumptions.append(f"EV/EBITDA Valuation: {ev_ebitda_val:.2f} (EBITDA/OCF={ebitda:,.0f} * Peer EV/EBITDA={avg_ev_ebitda:.1f}x)")
-                
-        # EV/Revenue Valuation
-        if revenue > 0 and avg_ev_rev > 0 and shares_outstanding > 0:
-            target_ev_rev = revenue * avg_ev_rev
-            target_equity_rev = target_ev_rev - total_debt + total_cash
-            ev_rev_val = target_equity_rev / shares_outstanding
-            if ev_rev_val > 0:
-                valuations.append(ev_rev_val)
-                assumptions.append(f"EV/Revenue Valuation: {ev_rev_val:.2f} (Revenue={revenue:,.0f} * Peer EV/Rev={avg_ev_rev:.1f}x)")
+            if vals:
+                return sum(vals) / len(vals), False
+            else:
+                return (current_price if current_price > 0 else 10.0), True
 
-        # 5. Average the valid valuations
-        if valuations:
-            intrinsic_value = sum(valuations) / len(valuations)
+        # Calculate values
+        intrinsic_value_br, fb_br = compute_valuation(avg_pe_br, avg_ev_ebitda_br, avg_ev_rev_br)
+        intrinsic_value_us, fb_us = compute_valuation(avg_pe_us, avg_ev_ebitda_us, avg_ev_rev_us)
+
+        # Apply peer weights if specified in adjustment parameters
+        weight_local = None
+        weight_us = None
+        if request.adjustment_params and "peer_weight_local" in request.adjustment_params:
+            weight_local = float(request.adjustment_params["peer_weight_local"])
+        if request.adjustment_params and "peer_weight_us" in request.adjustment_params:
+            weight_us = float(request.adjustment_params["peer_weight_us"])
+
+        if weight_local is not None or weight_us is not None:
+            # Fallback to defaults for missing weights
+            w_local = weight_local if weight_local is not None else (1.0 if is_target_brl else 0.0)
+            w_us = weight_us if weight_us is not None else (0.0 if is_target_brl else 1.0)
+            
+            total_w = w_local + w_us
+            if total_w > 0:
+                w_local /= total_w
+                w_us /= total_w
+                intrinsic_value = (w_local * intrinsic_value_br) + (w_us * intrinsic_value_us)
+                fallback_applied = fb_br if w_local > w_us else fb_us
+                assumptions.append(f"Blended peer valuation: {w_local*100:.0f}% Local/BR Peer Valuation ({intrinsic_value_br:.2f}) and {w_us*100:.0f}% US Benchmark Peer Valuation ({intrinsic_value_us:.2f})")
+            else:
+                intrinsic_value = intrinsic_value_br if is_target_brl else intrinsic_value_us
+                fallback_applied = fb_br if is_target_brl else fb_us
         else:
-            intrinsic_value = current_price if current_price > 0 else 10.0
-            fallback_applied = True
+            intrinsic_value = intrinsic_value_br if is_target_brl else intrinsic_value_us
+            fallback_applied = fb_br if is_target_brl else fb_us
+
+        if fallback_applied:
             assumptions.append("No valid multiples or positive financial bases found; fallback to current market price")
+
+        # Compute Verdicts
+        def get_verdict(val):
+            if val <= 0 or current_price <= 0:
+                return "INSUFFICIENT_DATA"
+            mos = ((val - current_price) / val) * 100
+            if mos > 20:
+                return "UNDERVALUED"
+            elif mos < -10:
+                return "OVERVALUED"
+            else:
+                return "FAIRLY_VALUED"
+
+        verdict_br = get_verdict(intrinsic_value_br)
+        verdict_us = get_verdict(intrinsic_value_us)
+
+        assumptions.append(f"BR CCA Valuation: {intrinsic_value_br:.2f} (Verdict: {verdict_br})")
+        assumptions.append(f"US CCA Valuation: {intrinsic_value_us:.2f} (Verdict: {verdict_us})")
 
         baseline_metrics = {
             "current_price": current_price,
@@ -142,5 +211,9 @@ class CCAMethodology(BaseMethodology):
                 "avg_pe": avg_pe,
                 "avg_ev_ebitda": avg_ev_ebitda,
                 "avg_ev_revenue": avg_ev_rev,
+                "intrinsic_value_br": float(intrinsic_value_br),
+                "intrinsic_value_us": float(intrinsic_value_us),
+                "verdict_br": verdict_br,
+                "verdict_us": verdict_us
             }
         )

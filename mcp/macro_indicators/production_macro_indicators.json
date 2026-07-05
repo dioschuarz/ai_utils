@@ -1,0 +1,42 @@
+{
+    "US": {
+        "timestamp": 1782236283.9827101,
+        "data": {
+            "country": "USA",
+            "currency": "USD",
+            "market_risk_premium": 0.06,
+            "components": {
+                "risk_free_rate_rf": 0.045,
+                "market_credit_spread": null,
+                "capital_structure_multiplier": null,
+                "inflation_yoy": 0.03,
+                "dynamic_country_risk_premium_crp": null,
+                "usd_brl_1y_annualized_vol": null,
+                "sp500_1y_annualized_vol": null,
+                "pure_sovereign_risk_ratio": null,
+                "derived_inflation_differential": null
+            },
+            "reference_period": "2026-06-01"
+        }
+    },
+    "BR": {
+        "timestamp": 1782236283.977878,
+        "data": {
+            "country": "Brazil",
+            "currency": "BRL",
+            "market_risk_premium": 0.0825,
+            "components": {
+                "risk_free_rate_rf": 0.1125,
+                "market_credit_spread": null,
+                "capital_structure_multiplier": null,
+                "inflation_yoy": 0.0439,
+                "dynamic_country_risk_premium_crp": 0.0304,
+                "usd_brl_1y_annualized_vol": 15.2,
+                "sp500_1y_annualized_vol": 12.4,
+                "pure_sovereign_risk_ratio": 1.22,
+                "derived_inflation_differential": 1.009
+            },
+            "reference_period": "2026-05-28"
+        }
+    }
+}
