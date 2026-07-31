@@ -1,21 +1,36 @@
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
 
-WORKDIR /app/mcp/fundamental_analysis
+WORKDIR /app
 
-# Enable bytecode compilation
-ENV UV_COMPILE_BYTECODE=1
-ENV UV_LINK_MODE=copy
-ENV UV_HTTP_TIMEOUT=300
-ENV UV_CONCURRENT_DOWNLOADS=4
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_HTTP_TIMEOUT=300
 
-# Copy all files of fundamental_analysis to /app/mcp/fundamental_analysis
-COPY . /app/mcp/fundamental_analysis
+COPY pyproject.toml uv.lock* /app/
 
-# Install dependencies globally in system python
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system .
+    uv sync --no-install-project --no-dev
 
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app/mcp/fundamental_analysis
+COPY . /app
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-dev && \
+    find /app/.venv -name "*.pyc" -delete && \
+    find /app/.venv -name "__pycache__" -delete
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app \
+    MALLOC_TRIM_THRESHOLD_=100000
+
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app /app
+
+EXPOSE 8000
 
 CMD ["python", "main.py"]

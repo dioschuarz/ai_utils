@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  mcp-monolith:
+    build:
+      context: .
+      dockerfile: Dockerfile.monolith
+    image: mcp-monolith:latest
+    container_name: mcp-monolith
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - PYTHONUNBUFFERED=1
+      - MALLOC_TRIM_THRESHOLD_=100000
+    networks:
+      - investment-net
+
+networks:
+  investment-net:
+    external: true

@@ -75,14 +75,32 @@ class MCPServerManager:
         else:
             print("✓ Network already exists")
 
-    def start(self, server: Optional[str] = None, build: bool = False, unified: bool = False):
+    def start(self, server: Optional[str] = None, build: bool = False, unified: bool = False, monolith: bool = False):
         """Start one or all MCP servers.
         
         Args:
             server: Specific server to start (optional)
             build: Whether to rebuild images
             unified: Use unified docker-compose.yml if available
+            monolith: Use 1-container mcp-monolith deployment
         """
+        if monolith:
+            monolith_compose = self.mcp_dir / "docker-compose.monolith.yml"
+            print(f"\n{'='*60}")
+            print("Starting 9-in-1 MCP Monolith (1-Container Mode)...")
+            print(f"{'='*60}")
+            self._ensure_network()
+            cmd = ["docker", "compose", "-f", str(monolith_compose), "up", "-d"]
+            if build:
+                cmd.append("--build")
+            result = subprocess.run(cmd, cwd=self.mcp_dir, capture_output=True, text=True)
+            if result.returncode == 0:
+                print("✓ MCP Monolith container started successfully on port 8000")
+            else:
+                print(f"✗ Failed to start MCP Monolith: {result.stderr}")
+                sys.exit(1)
+            return
+
         # Check for unified compose file
         unified_compose = self.mcp_dir / "docker-compose.yml"
         if unified and unified_compose.exists():
@@ -297,6 +315,11 @@ Examples:
         action="store_true",
         help="Use unified docker-compose.yml (starts all servers together)",
     )
+    start_parser.add_argument(
+        "--monolith",
+        action="store_true",
+        help="Use 1-container 9-in-1 MCP monolith deployment (docker-compose.monolith.yml)",
+    )
 
     # Stop command
     stop_parser = subparsers.add_parser("stop", help="Stop MCP server(s)")
@@ -356,7 +379,7 @@ Examples:
 
     try:
         if args.command == "start":
-            manager.start(args.server, build=args.build, unified=args.unified)
+            manager.start(args.server, build=args.build, unified=args.unified, monolith=getattr(args, 'monolith', False))
         elif args.command == "stop":
             manager.stop(args.server, unified=args.unified)
         elif args.command == "restart":

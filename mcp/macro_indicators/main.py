@@ -254,15 +254,18 @@ async def get_all_macro_indicators() -> str:
     except Exception as e:
         return f"Error: {str(e)}"
 
-# ==============================================================================
-# Sub-App Mounting
-# ==============================================================================
-
-mcp_app = mcp.http_app(path="/mcp")
-app.mount("/mcp", mcp_app)
+@mcp.custom_route("/health", methods=["GET"])
+async def health(request):
+    """Health check endpoint."""
+    return JSONResponse({"status": "healthy"})
 
 if __name__ == "__main__":
-    import uvicorn
-    host = os.getenv("MCP_HOST", "127.0.0.1")
-    port = int(os.getenv("MCP_PORT", "8108"))
-    uvicorn.run(app, host=host, port=port)
+    host = os.getenv("MCP_HOST", "0.0.0.0")
+    port = int(os.getenv("MCP_PORT", "8000"))
+    mcp.run(
+        transport="http",
+        host=host,
+        port=port,
+        stateless_http=True,
+        json_response=True,
+    )
